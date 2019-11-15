@@ -1,0 +1,17 @@
+Creasol DomBus plugin for Domoticz.
+Author: Paolo Subiaco  tech@creasol.it
+https://www.creasol.it/CreasolDomBus1
+
+ChangeLog
+
+0.0.2 2019-11-12
+New feature: for every connected device, every 5 minutes (PERIODIC_STATUS_INTERVAL defined in
+CreasolDomBusProtocol.py) Domoticz will transmit the status of those outputs.
+This refresh is needed in case a DomBus device has been disconnected from
+power supply, or in case of errors on the serial bus.
+
+New feature: automatically remove from the list of known modules ones that do
+not transmit since 15 minutes
+
+0.0.1 First version
+
