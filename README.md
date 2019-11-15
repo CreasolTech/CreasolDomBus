@@ -17,12 +17,32 @@ One or more devices can be attached to a RS485 serial bus, so with a 4 wire cabl
 
 In this folder you can find the python plugin for Domoticz, or you can install it typing the following commands from the domoticz shell (linux, raspberry):
 
+#install wget, if not already installed
+
+if [ ! `which wget` ]; then sudo apt install wget; fi
+
+#change to the domoticz directory
+
 cd /home/pi/domoticz # or other directory where domoticz is installed
 
-wget -O /tmp/dombus.tgz https://github.com/CreasolTech/CreasolDomBus/archive/master.zip
+#fetch the plugin
 
-tar xvzf /tmp/dombus.tgz
+wget -O /tmp/CreasolDomBus.zip https://github.com/CreasolTech/CreasolDomBus/archive/master.zip
+
+extract the plugin
+
+unzip /tmp/CreasolDomBus.zip
+
+#restart Domoticz daemon
 
 service domoticz restart
 
-then you can find the Creasol DomBus protocol in the Setup -> Hardware panel.
+---------
+
+Then you can find the Creasol DomBus protocol in the Setup -> Hardware panel:
+
+select a name (for example, dombus), select Type Creasol DomBus and enter the serial device used for RS485 bus.
+
+Now you're ready to connect one DomBus device to the RS485 bus, and check the new I/Os in Switches panel or Setup -> Devices
+
+
