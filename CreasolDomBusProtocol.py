@@ -200,7 +200,7 @@ def txQueueRemove(frameAddr,cmd,port):
     
 def txOutputsStatus(Devices,frameAddr):
     # transmit the status of outputs for the device frameAddr
-    Domoticz.Log("Send outputs status for device "+hex(frameAddr))
+    # Domoticz.Log("Send outputs status for device "+hex(frameAddr))
     for Device in Devices:
         deviceIDMask="H{:04x}_P".format(frameAddr)
         if (Devices[Device].Used==1 and Devices[Device].DeviceID[:7]==deviceIDMask):
