@@ -62,12 +62,14 @@ PORTTYPE_SENSOR_DISTANCE=0x2000 #distance measurement (send a pulse and measure 
 PORTTYPE_SENSOR_TEMP=0x4000     #Temperature
 PORTTYPE_SENSOR_HUM=0x8000      #Relative Humidity
 PORTTYPE_SENSOR_TEMP_HUM=0xc000 #Temp+Hum
+PORTTYPE_OUT_BLIND=0x01000000   #Blind output, close command (next port of DomBus device will be automatically used as Blind output, open command)
 
 PORTOPT_NONE=0x0000             #No options
 PORTOPT_INVERTED=0x0001         #Logical inverted: MUST BE 1
 
-PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243}
-PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance"}
+PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244}
+
+PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch"}
 
 PORTTYPES={
         "DISABLED":0x0000,      # port not used
@@ -81,9 +83,10 @@ PORTTYPES={
         "IN_ANALOG":0x0100,     # input analog (ADC)
         "IN_TWINBUTTON":0x0200, # 2 buttons connected to a single input through a resistor
         "DISTANCE":0x2000,      # measure distance in mm
-        "TEMPERATURE":0x4000,    # temperature
-        "HUMIDITY":0x8000,       # relative humidity
-        "TEMP+HUM":0xc000,       # temp+hum
+        "TEMPERATURE":0x4000,   # temperature
+        "HUMIDITY":0x8000,      # relative humidity
+        "TEMP+HUM":0xc000,      # temp+hum
+        "OUT_BLIND":0x01000000, # blind with up/down/stop command
         }
 
 PORTOPTS={
@@ -106,6 +109,8 @@ PORTTYPENAME={  #Used to set the device TypeName
         "TEMPERATURE":"Temperature",
         "TEMP+HUM":"Temp+Hum",
         "DISTANCE":"Distance",
+#        "OUT_BLIND":"Venetian Blinds EU", #not available in domoticz yet. hardware/plugins/PythonObjects.cpp must be updated!
+        "OUT_BLIND":"Switch",
         }
 
 rxbuffer=bytearray()         #serial rx buffer
@@ -188,6 +193,27 @@ def getDeviceUnit(Devices,findUnitFreeMax):
                 break
     return found
 
+def getOpt(d, parameter):
+    #get parameter value from device description
+    #d=device
+    #parameter=STRING (must be uppercase)
+    #e.g. a=getOpt("A=")
+    #return a string:
+    # "false" if not defined
+    # "value" if A=value
+    # "1" if A=   (needed when getOpt("INVERTED"), for example
+    opts=d.Description.upper().split(',')
+    length=len(parameter)
+    for opt in opts:
+        opt=opt.strip()
+        if (opt[:length]==parameter):
+            value=(opt[length:])
+            if (len(value)):
+                return value
+            else:
+                return "1"
+    return "false"
+
 def txQueueAdd(frameAddr,cmd,cmdLen,cmdAck,port,args,retries,now):
     #add a command in the tx queue for the specified module (frameAddr)
     #if that command already exists, update it
@@ -233,7 +259,7 @@ def txQueueRemove(frameAddr,cmd,port):
     removeItems=[]
     if len(txQueue)!=0 and frameAddr in txQueue.keys():
         for f in txQueue[frameAddr][:]:
-            Domoticz.Debug("f="+str(f))
+            #Domoticz.Debug("f="+str(f))
             #f=[cmd,cmdlen,cmdAck,port,args[],retries]
             if (((cmd&port)==255) or (f[0]==cmd and f[3]==port)):
                 txQueue[frameAddr].remove(f)
@@ -244,18 +270,20 @@ def txOutputsStatus(Devices,frameAddr):
     # Domoticz.Log("Send outputs status for device "+hex(frameAddr))
     for Device in Devices:
         deviceIDMask="H{:04x}_P".format(frameAddr)
-        if (Devices[Device].Used==1 and Devices[Device].DeviceID[:7]==deviceIDMask):
+        d=Devices[Device]
+        if (d.Used==1 and d.DeviceID[:7]==deviceIDMask):
             # device is used and matches frameAddr
             # check that this is an output
-            if (re.search('(OUT_DIGITAL|OUT_RELAY_LP)',Devices[Device].Description)):
+            if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL] and re.search('(OUT_DIGITAL|OUT_RELAY_LP|OUT_DIMMER)',d.Description)):
                 # output! get the port and output state
-                port=int("0x"+Devices[Device].DeviceID[7:11],0)
-                if (Device.SwitchType==7): #dimmer
-                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[int(Devices[Device].Level/5)],TX_RETRY,1) #Level: from 0 to 20 = 100%
-                elif (d.SwitchType==18): #selector
-                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[Devices[Device].Level],TX_RETRY,1) #Level: 0, 10, 20, ....
+                port=int("0x"+d.DeviceID[7:11],0)
+                if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
+                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[int(d.nValue/5)],TX_RETRY,1) #Level: from 0 to 20 = 100%
+                elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
+                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[d.nValue],TX_RETRY,1) #Level: 0, 10, 20, ....
                 else:
-                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[Devices[Device].nvalue],TX_RETRY,1)
+                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[d.nValue],TX_RETRY,1)
+#                Domoticz.Log("Device.SwitchType="+str(d.SwitchType))
     return
 
 def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
@@ -264,16 +292,34 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
     d=Devices[unit]
     deviceID=d.DeviceID
     #add command in the queue
-    #Domoticz.Debug("Type="+str(d.Type)+" SubType="+str(d.SubType)+" SwitchType="+str(d.SwitchType))
+    if (False and not hasattr(d,'SwitchType')): 
+        Domoticz.Debug("Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+str(d.Name))
+        Domoticz.Debug(str(d))
+        Domoticz.Debug("dir: "+str(dir(d)))
     if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
-        if (d.SwitchType==7): #dimmer
+        if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
             txQueueAdd(frameAddr,CMD_SET,2,0,port,[int(Level/5)],TX_RETRY,1) #Level: from 0 to 20 = 100%
-        elif (d.SwitchType==18): #selector
+        elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
             txQueueAdd(frameAddr,CMD_SET,2,0,port,[Level],TX_RETRY,1) #Level: 0, 10, 20, ....
-        else:
+        elif (hasattr(d,'SwitchType') and (d.SwitchType==15 or d.SwitchType==14)): #venetian blinds
+            if (Command=='Off'): #Open
+                v=getOpt(d,"TIMEOPEN=")
+                duration=int(v) if (v!="false") else 25
+                if (duration<=0 or duration>120): duration=25
+                newstate=0x80|duration   
+            elif (Command=='On'): #Close
+                v=getOpt(d,"TIMECLOSE=")
+                duration=int(v) if (v!="false") else 25
+                if (duration<=0 or duration>120): duration=25
+                newstate=duration   
+            else: #Stop
+                newstate=0
+            #newstate=0 => STOP. newstate&0x80 => open for newstate&0x7f seconds, else close for newstate&0x7f seconds
+            txQueueAdd(frameAddr,CMD_SET,2,0,port,[newstate],TX_RETRY,1) 
+        else: #normal switch
             txQueueAdd(frameAddr,CMD_SET,2,0,port,[newstate],TX_RETRY,1)
     else:
-        Domoticz.Debug("Ignore command due to unmanaged Type="+d.Type)
+        Domoticz.Debug("Ignore command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
     return
 
 def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
@@ -315,9 +361,11 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             hwaddr=int(opt[7:],16)
             if (hwaddr>=1 and hwaddr<65535):
                 setHwaddr=hwaddr
+        elif (opt[:10]=="TIMECLOSE=" or opt[:9]=="TIMEOPEN="):
+            setOptNames+=opt+","
     if (setOptNames!=''):
         setOptNames=setOptNames[:-1]    #remove last comma ,
-    Domoticz.Debug("Config device "+str(frameAddr)+": type="+hex(setType)+" typeName="+typeName+" opts="+hex(setOpt))
+    Domoticz.Debug("Config device "+hex(frameAddr)+": type="+hex(setType)+" typeName="+typeName+" opts="+hex(setOpt))
     txQueueAdd(frameAddr, CMD_CONFIG, 5, 0, port, [((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,1) #PORTTYPE_VERSION=1
     txQueueAdd(frameAddr, CMD_CONFIG, 7, 0, port, [((setType>>24)&0xff), ((setType>>16)&0xff), ((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,1) #PORTTYPE_VERSION=2
     descr=setTypeName+','+setOptNames if (setTypeDefined==1) else setOptNames
@@ -461,63 +509,62 @@ def decode(Devices):
                                 #got a frame from a unknown device: ask for configuration
                                 txQueueAskConfig(frameAddr)
                             else:
+                                d=Devices[unit]
                                 #got a frame from a well known device
                                 getDeviceID(frameAddr,arg1)
                                 if (cmdLen==2):
                                     stringval='Off' if arg2==0 else 'On'
                                     #update device only if was changed
-                                    if (Devices[unit].SwitchType==18): #selector
-                                        Devices[unit].Update(nValue=int(arg2), sValue=str(arg2))
-                                    elif (Devices[unit].SwitchType==7): #dimmer
-                                        if (Devices[unit].Level!=int(arg2)):
-                                            Devices[unit].Update(Level=int(arg2))
+                                    if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
+                                        if (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
+                                            d.Update(nValue=int(arg2), sValue=str(arg2))
+                                        elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
+                                            if (d.Level!=int(arg2)):
+                                                d.Update(Level=int(arg2))
+                                        else: #normal switch
+                                            if (d.nValue!=int(arg2) or d.sValue!=stringval):
+                                                d.Update(nValue=int(arg2), sValue=stringval)
                                     else:
-                                        if (Devices[unit].nValue!=int(arg2) or Devices[unit].sValue!=stringval):
-                                            Devices[unit].Update(nValue=int(arg2), sValue=stringval)
+                                        #device is not a switch, or has not the SwitchType attribute
+                                        Domoticz.Debug("Ignore SET command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
+
                                     #send ack
                                     txQueueAdd(frameAddr,CMD_SET,2,CMD_ACK,arg1,[arg2],1,1)
                                 elif (cmdLen==3):
                                     #analog value, distance, temperature or humidity
                                     value=arg2*256+arg3
-                                    if (Devices[unit].Type==PORTTYPE[PORTTYPE_SENSOR_TEMP]):
+                                    if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP]):
                                         temp=round(value/10.0-273.1,1)
                                         Domoticz.Debug("Temperature: value="+str(value)+" temp="+str(temp)) 
                                         stringval=str(float(temp))
-                                        if (temp>-50 and Devices[unit].sValue!=stringval):
-                                            Devices[unit].Update(nValue=int(temp), sValue=stringval)
-                                    elif (Devices[unit].Type==PORTTYPE[PORTTYPE_SENSOR_HUM]):
+                                        if (temp>-50 and d.sValue!=stringval):
+                                            d.Update(nValue=int(temp), sValue=stringval)
+                                    elif (d.Type==PORTTYPE[PORTTYPE_SENSOR_HUM]):
                                         hum=int(value/10)
-                                        if (hum>5 and Devices[unit].nValue!=hum):
-                                            Devices[unit].Update(nValue=hum, sValue=HRstatus(hum))
-                                    elif (Devices[unit].Type&(PORTTYPE[PORTTYPE_SENSOR_DISTANCE]|PORTTYPE[PORTTYPE_IN_ANALOG])):
+                                        if (hum>5 and d.nValue!=hum):
+                                            d.Update(nValue=hum, sValue=HRstatus(hum))
+                                    elif (d.Type&(PORTTYPE[PORTTYPE_SENSOR_DISTANCE]|PORTTYPE[PORTTYPE_IN_ANALOG])):
                                         #extract A and B, if defined, to compute the right value VALUE=A*dombus_value+B
-                                        opts=Devices[unit].Description.upper().split(',')
-                                        a=1
-                                        b=0
-                                        found=0
-                                        for opt in opts:
-                                            opt=opt.strip()
-                                            if (opt[:2]=="A="):
-                                                a=float(opt[2:])
-                                                found|=1
-                                            if (opt[:2]=="B="):
-                                                b=float(opt[2:])
-                                                found|=2
+                                        v=getOpt(d,"A=")
+                                        a=float(v) if (v!="false") else 1
+                                        v=getOpt(d,"B=")
+                                        b=float(v) if (v!="false") else 0
                                         Value=a*value+b
-                                        if (Devices[unit].sValue!=str(Value)):
-                                            Devices[unit].Update(nValue=int(Value), sValue=str(Value))
+                                        if (d.sValue!=str(Value)):
+                                            d.Update(nValue=int(Value), sValue=str(Value))
                                         Domoticz.Debug("Value="+str(a)+"*"+str(value)+"+"+str(b)+"="+str(Value))
                                     txQueueAdd(frameAddr,CMD_SET,3,CMD_ACK,arg1,[arg2,arg3],1,1)
                                 elif (cmdLen==5):
                                     #temp+hum
                                     value=arg2*256+arg3
                                     value2=arg4*256+arg5
-                                    if (Devices[unit].Type==PORTTYPE[PORTTYPE_SENSOR_TEMP_HUM]):
+                                    if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP_HUM]):
                                         temp=round(value/10.0-273.1,1)
                                         hum=int(value2/10)
                                         stringval=str(float(temp))+";"+str(hum)+";2" #TODO: status
-                                        if (temp>-50 and hum>5 and Devices[unit].sValue!=stringval):
-                                            Devices[unit].Update(nValue=int(temp), sValue=stringval)
+                                        if (temp>-50 and hum>5 and d.sValue!=stringval):
+                                            Domoticz.Debug("nValue="+str(temp)+" sValue="+stringval)
+                                            d.Update(nValue=int(temp), sValue=stringval)
                                         txQueueAdd(frameAddr,CMD_SET,5,CMD_ACK,arg1,[arg2,arg3,arg4,arg5],1,1)
                 frameIdx=frameIdx+cmdLen+1
             #remove current frame from buffer

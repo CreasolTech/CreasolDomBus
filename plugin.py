@@ -107,9 +107,8 @@ class BasePlugin:
         dombus.send(Devices, SerialConn)
         return
     def onCommand(self, Unit, Command, Level, Hue):
-        Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level)+", Hue:"+str(Hue))
+        Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Command:'" + str(Command) + "', Level:" + str(Level)+", Hue:"+str(Hue))
         newstate=1 if Command=="On" else 0
-        newstateName="On" if Command=="On" else "Off"
         #send command to the module
         deviceID=Devices[Unit].DeviceID
         hwaddr="0x"+deviceID[1:5]
@@ -117,14 +116,14 @@ class BasePlugin:
         port=int("0x"+deviceID[7:11],0)
         dombus.parseCommand(Devices,Unit,Command,Level,Hue,frameAddr,port)
         dombus.send(Devices, SerialConn)
-        Domoticz.Debug("SwitchType=="+str(Devices[Unit].SwitchType))
+        #Domoticz.Debug("SwitchType=="+str(Devices[Unit].SwitchType))
         if (Devices[Unit].SwitchType==7):
             # do nothing
             Domoticz.Debug("Changed dimmer value to "+str(Level))
-        elif (Devices[Unit].SwitchType==18): #dimmer or selector
+        elif (Devices[Unit].SwitchType==18): #selector
             Devices[Unit].Update(nValue=Level, sValue=str(Level))
         else:
-            Devices[Unit].Update(nValue=newstate, sValue=newstateName)
+            Devices[Unit].Update(nValue=newstate, sValue=Command)
         return True
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Log("Notification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
