@@ -41,7 +41,7 @@ fi
 
 #extract the plugin
 
-tar xvzf /tmp/CreasolDomBus.tgz -C plugins/CreasolDomBus
+tar xvzf /tmp/CreasolDomBus.tgz -C plugins/CreasolDomBus --strip=1
 
 #restart Domoticz daemon
 
