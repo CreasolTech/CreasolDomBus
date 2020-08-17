@@ -3,18 +3,13 @@ Author: Paolo Subiaco  tech@creasol.it
 https://www.creasol.it/CreasolDomBus1
 
 ChangeLog
-0.0.3 2020-xx-yy
+0.0.3 2020-08-17
 New features:
 * Temperature, Humidity and Temp+Hum sensors, implemented in Creasol DomBus2
 device: ENV_TEMPERATURE, ENV_HUMIDITY, ENV_TEMP_HUM in device notes.
 * Added OUT_LEDSTATUS to configure a led as RS485 TX status, instead of
 OUT_DIGITAL 
 * Added OUT_DIMMER, to generate a 500Hz output, 20 steps: 0, 5%, 10%, ...
-
-
-
-
-BugFixes:
 
 0.0.2 2019-11-12
 New feature: for every connected device, every 5 minutes (PERIODIC_STATUS_INTERVAL defined in

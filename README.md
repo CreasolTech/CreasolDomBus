@@ -4,8 +4,8 @@ Domoticz plugin for the DomBus I/O/Sensors modules that can be connected to Domo
 Author: Creasol - linux@creasol.it 
 
 Websites: https://www.creasol.it/CreasolDomBus1
-
-          http://www.creasol.it/support/domotics-home-automation-and-diy
+          https://www.creasol.it/CreasolDomBusTH
+          https://www.creasol.it/support/domotics-home-automation-and-diy
 
 For any support request, please write email to linux@creasol.it or click on http://support.creasol.it
 Also, it's possible to get support by Telegram https://t.me/DomBus  (DomBus public channel)
@@ -29,14 +29,17 @@ cd /home/pi/domoticz # or other directory where domoticz is installed
 
 #fetch the plugin
 
-wget -O /tmp/CreasolDomBus.zip https://github.com/CreasolTech/CreasolDomBus/archive/master.zip
+wget -O /tmp/CreasolDomBus.tgz https://codeload.github.com/CreasolTech/CreasolDomBus/tar.gz/master
 
-extract the plugin
+#Create directory, if not exist
+if [ ! -d plugins/CreasolDomBus ]; then
+	mkdir -p plugins/CreasolDomBus
+fi
 
-unzip /tmp/CreasolDomBus.zip
+#extract the plugin
+tar xvzf /tmp/CreasolDomBus.tgz -C plugins/CreasolDomBus
 
 #restart Domoticz daemon
-
 service domoticz restart
 
 ---------

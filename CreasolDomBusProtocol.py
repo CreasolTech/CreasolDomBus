@@ -131,13 +131,13 @@ def __init__(self):
 
 def HRstatus(hum): #return normal, comfort, dry, wet status depending by relative humdity argument
     if (hum<25):
-        return "2"
+        return "2"  #dry
     elif (hum>70):
-        return "3"
-    elif (hum>=40 and hum<=60):
+        return "3"  #wet
+    elif (hum>=40 and hum<=60): #comfortable
         return "1"
     else:
-        return "0"
+        return "0"  #normal
 
 def checksum(buffer):
     global checksumValue, FRAME_LEN, FRAME_HEADER
@@ -561,9 +561,9 @@ def decode(Devices):
                                     if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP_HUM]):
                                         temp=round(value/10.0-273.1,1)
                                         hum=int(value2/10)
-                                        stringval=str(float(temp))+";"+str(hum)+";2" #TODO: status
+                                        stringval=str(float(temp))+";"+str(hum)+";"+HRstatus(hum) 
+                                        Domoticz.Debug("TEMP_HUM: nValue="+str(temp)+" sValue="+stringval)
                                         if (temp>-50 and hum>5 and d.sValue!=stringval):
-                                            Domoticz.Debug("nValue="+str(temp)+" sValue="+stringval)
                                             d.Update(nValue=int(temp), sValue=stringval)
                                         txQueueAdd(frameAddr,CMD_SET,5,CMD_ACK,arg1,[arg2,arg3,arg4,arg5],1,1)
                 frameIdx=frameIdx+cmdLen+1
