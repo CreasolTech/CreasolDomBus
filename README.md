@@ -32,14 +32,19 @@ cd /home/pi/domoticz # or other directory where domoticz is installed
 wget -O /tmp/CreasolDomBus.tgz https://codeload.github.com/CreasolTech/CreasolDomBus/tar.gz/master
 
 #Create directory, if not exist
+
 if [ ! -d plugins/CreasolDomBus ]; then
+
 	mkdir -p plugins/CreasolDomBus
+
 fi
 
 #extract the plugin
+
 tar xvzf /tmp/CreasolDomBus.tgz -C plugins/CreasolDomBus
 
 #restart Domoticz daemon
+
 service domoticz restart
 
 ---------
