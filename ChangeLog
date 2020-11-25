@@ -3,6 +3,11 @@ Author: Paolo Subiaco  tech@creasol.it
 https://www.creasol.it/CreasolDomBus1
 
 ChangeLog
+0.0.4 2020-11-25
+BugFix: dimmer status was not saved in Domoticz, so changing panel and
+returning to the dimmer device get to a bad dimmer value. Thanks to Giorgio
+for let me know this problem!
+
 0.0.3 2020-08-17
 New features:
 * Temperature, Humidity and Temp+Hum sensors, implemented in Creasol DomBus2
