@@ -118,8 +118,9 @@ class BasePlugin:
         dombus.send(Devices, SerialConn)
         #Domoticz.Debug("SwitchType=="+str(Devices[Unit].SwitchType))
         if (Devices[Unit].SwitchType==7):
-            # do nothing
-            Domoticz.Debug("Changed dimmer value to "+str(Level))
+            nv=1 if Level>=1 else 0                
+            Domoticz.Log("Changed dimmer value to "+str(Level)+" nv="+str(nv))
+            Devices[Unit].Update(nValue=int(nv), sValue=str(Level))
         elif (Devices[Unit].SwitchType==18): #selector
             Devices[Unit].Update(nValue=Level, sValue=str(Level))
         else:
