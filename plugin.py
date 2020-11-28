@@ -3,7 +3,7 @@
 # Author: creasol https://creasol.it
 #
 """
-<plugin key="CreasolDomBus" name="Creasol DomBus RS485 boards to expand inputs and outputs" author="Creasol" version="0.0.2" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://creasol.it/CreasolDomBus1">
+<plugin key="CreasolDomBus" name="Creasol DomBus RS485 boards to expand inputs and outputs" author="Creasol" version="0.0.4" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://creasol.it/CreasolDomBus1">
     <description>
         <h2>Creasol DomBus plugin</h2><br/>
         RS485 bus protocol used to connect Raspberry/Domoticz controller to one or more Creasol DomBus* boards.<br/>
@@ -108,7 +108,7 @@ class BasePlugin:
         return
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Command:'" + str(Command) + "', Level:" + str(Level)+", Hue:"+str(Hue))
-        newstate=1 if Command=="On" else 0
+        newstate=0 if Command=="Off" else 1
         #send command to the module
         deviceID=Devices[Unit].DeviceID
         hwaddr="0x"+deviceID[1:5]
@@ -118,9 +118,11 @@ class BasePlugin:
         dombus.send(Devices, SerialConn)
         #Domoticz.Debug("SwitchType=="+str(Devices[Unit].SwitchType))
         if (Devices[Unit].SwitchType==7):
-            nv=1 if Level>=1 else 0                
-            Domoticz.Log("Changed dimmer value to "+str(Level)+" nv="+str(nv))
-            Devices[Unit].Update(nValue=int(nv), sValue=str(Level))
+            nv=1 if Level>=5 else 0
+            if (Command=='Off'):
+                Devices[Unit].Update(nValue=0, sValue=str(Level))
+            else:
+                Devices[Unit].Update(nValue=int(nv), sValue=str(Level))
         elif (Devices[Unit].SwitchType==18): #selector
             Devices[Unit].Update(nValue=Level, sValue=str(Level))
         else:

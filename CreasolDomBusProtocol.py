@@ -249,7 +249,7 @@ def txQueueAdd(frameAddr,cmd,cmdLen,cmdAck,port,args,retries,now):
     return        
 
 def txQueueAskConfig(frameAddr):
-    txQueueAdd(frameAddr,CMD_CONFIG,1,0,0xff,[],TX_RETRY,1)    #port=0xff to ask entire configuration
+    txQueueAdd(frameAddr,CMD_CONFIG,1,0,0xff,[],TX_RETRY,1)    #port=0xff to ask full configuration
     return 
 
 def txQueueRemove(frameAddr,cmd,port):
@@ -298,7 +298,10 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
         Domoticz.Debug("dir: "+str(dir(d)))
     if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
         if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-            txQueueAdd(frameAddr,CMD_SET,2,0,port,[int(Level/5)],TX_RETRY,1) #Level: from 0 to 20 = 100%
+            if (Command=='Off'):
+                txQueueAdd(frameAddr,CMD_SET,2,0,port,[0],TX_RETRY,1) #Level: from 0 to 20 = 100%
+            else:
+                txQueueAdd(frameAddr,CMD_SET,2,0,port,[int(Level/5)],TX_RETRY,1) #Level: from 0 to 20 = 100%
         elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
             txQueueAdd(frameAddr,CMD_SET,2,0,port,[Level],TX_RETRY,1) #Level: 0, 10, 20, ....
         elif (hasattr(d,'SwitchType') and (d.SwitchType==15 or d.SwitchType==14)): #venetian blinds
