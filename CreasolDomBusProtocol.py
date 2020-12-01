@@ -227,8 +227,8 @@ def txQueueAdd(frameAddr,cmd,cmdLen,cmdAck,port,args,retries,now):
         found=0
         for f in txQueue[frameAddr]:
             #f=[cmd,cmdlen,cmdAck,port,args[]]
-            if (f[0]==cmd and f[3]==port):
-                f[1]=cmdLen
+            if (f[0]==cmd and f[1]==cmdLen and f[3]==port):
+                #command already in txQueue: update values
                 f[2]=cmdAck
                 f[4]=args
                 if (f[5]<retries):
@@ -347,9 +347,13 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             setTypeName=opt             #setTypeName=DISTANCE
             typeName=PORTTYPENAME[opt]  #typeName=Temperature
         elif opt in PORTOPTS.keys():
-            setOpt=setOpt|PORTOPTS[opt]
+            if (opt=="NORMAL"):
+                setOpt=0
+                setOptNames=''
+            else:
+                setOpt=setOpt|PORTOPTS[opt]
+                setOptNames+=opt+","
             setOptDefined=1
-            setOptNames+=opt+","
         elif opt[:2]=="A=":
             setOptNames+=opt+","
         elif opt[:2]=="B=":
