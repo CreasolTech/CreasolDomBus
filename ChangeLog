@@ -3,7 +3,10 @@ Author: Paolo Subiaco  tech@creasol.it
 https://www.creasol.it/CreasolDomBus1
 
 ChangeLog
-0.0.4 2020-11-25
+0.0.4 2020-12-03
+BugFix: every 1 minute dombus plugin refreshes the output status, but 
+there was bug in refreshing dimmer status. Thanks to Giorgio for the support!
+
 BugFix: dimmer status was not saved in Domoticz, so changing panel and
 returning to the dimmer device get to a bad dimmer value. 
 Also, now it's possible to turn off dimmer device by clicking on icon

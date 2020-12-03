@@ -274,11 +274,12 @@ def txOutputsStatus(Devices,frameAddr):
         if (d.Used==1 and d.DeviceID[:7]==deviceIDMask):
             # device is used and matches frameAddr
             # check that this is an output
-            if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL] and re.search('(OUT_DIGITAL|OUT_RELAY_LP|OUT_DIMMER)',d.Description)):
+            if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL] and re.search('(OUT_DIGITAL|OUT_RELAY_LP|OUT_DIMMER|OUT_BUZZER)',d.Description)):
                 # output! get the port and output state
                 port=int("0x"+d.DeviceID[7:11],0)
                 if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[int(d.nValue/5)],TX_RETRY,1) #Level: from 0 to 20 = 100%
+                    level=int(int(d.sValue)/5) if d.nValue==1 else 0
+                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[level],TX_RETRY,1) #Level: from 0 to 20 = 100%
                 elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
                     txQueueAdd(frameAddr,CMD_SET,2,0,port,[d.nValue],TX_RETRY,1) #Level: 0, 10, 20, ....
                 else:
