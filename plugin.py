@@ -3,29 +3,33 @@
 # Author: creasol https://creasol.it
 #
 """
-<plugin key="CreasolDomBus" name="Creasol DomBus RS485 boards to expand inputs and outputs" author="Creasol" version="0.0.4" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://creasol.it/CreasolDomBus1">
+<plugin key="CreasolDomBus" name="Creasol DomBus RS485 boards to expand inputs and outputs" author="Creasol" version="1.0.0" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://creasol.it/domotics">
     <description>
         <h2>Creasol DomBus plugin</h2><br/>
-        RS485 bus protocol used to connect Raspberry/Domoticz controller to one or more Creasol DomBus* boards.<br/>
-        Useful to remotely connect to Domoticz: digital inputs, ultrasonic distance senrsors, 230Vac inputs, digital output, optimized power consumption relays, solid state relay output, ...  to Domoticz.<br/>
-        <h3>Supported devices</h3>
+        RS485 bus protocol used to connect Domoticz controller (Raspberry PI, Linux, Windows, ...) to one or more Creasol DomBus* modules.<br/>
+        Useful to expand Domoticz I/O/S: digital inputs, ultrasonic distance senrsors, 230Vac inputs, 12/24V inputs, digital output, power-optimized relays, buzzer, blinds/roller shutters, LEDs, temperature and relative humidity sensors, Led stripes, ...<br/>
+        <h3>Supported modules:</h3>
         <ul style="list-style-type:square">
-            <li>Creasol DomBus1 - manages 6*digital inputs, 1*AC input (to detect 230V blackout, for example), 3*250V 5A relay outputs (2 relays optimized for low current consumption).</li>
+            <li>Creasol <b>DomBus1</b> :  <b>6*digital inputs, 1*230Vac input</b> (to detect 230V blackout, for example), <b>3*250V 5A relay outputs</b>.</li>
+            <li>Creasol <b>DomBus12</b> : <b>7*I/O</b> (digital inputs/outpus, analog inputs, buzzer output, dimmer output), <b>2 open-drain outputs</b> (to drive external relays).</li>
+            <li>Creasol <b>DomBus23</b> : <b>2* power-optimized relays, 1* 230Vac input, 2* analog/digital inputs, 2*I/O</b> (digital inputs/outputs, analog inputs, buzzer output, dimmer output), <b>2* 12/24V inputs with optocoupler, 1 power mosfet 30V 13A with dimmer</b> function.</li>
+            <li>Creasol <b>DomBus31</b> : <b>6* SPST 250V 5A relays + 2* SPDT (NO+NC terminal blocks) 250V 10A relays</b>. All relays are power-optimized, and can be used to drive blind/roller shutter motors</li>
+            <li>Creasol <b>DomBusTH</b> : <b>Temperature + Humidity sensor, 3* LEDs, 4* I/O</b> (digital/analog inputs, digital outputs, buzzer), <b>1* 0-30V analog input, 2 open-drain outputs</b> (to drive exteranl relays or LEDs, 40V 50mA max).</li>
         </ul>
         <h3>Configuration</h3>
-        Please enter the right serial port, below. Baudrate must be 115200bps
+        Please enter the right serial port, below.
     </description>
     <params>
         <param field="SerialPort" label="Serial Port device" width="150px" required="true" default="/dev/ttyUSB0"/>    
-        <param field="Mode6" label="Debug" width="150px">
+        <param field="Mode6" label="Log level" width="150px">
             <options>
                 <option label="None" value="0"  default="true" />
-                <option label="Python Only" value="2"/>
-                <option label="Basic Debugging" value="62"/>
-                <option label="Basic+Messages" value="126"/>
-                <option label="Connections Only" value="16"/>
-                <option label="Connections+Queue" value="144"/>
-                <option label="All" value="-1"/>
+                <option label="Errors" value="1"/>
+                <option label="Warnings" value="2"/>
+                <option label="Verbose" value="3"/>
+                <option label="Debug" value="4"/>
+                <option label="RS485 traffic, protocol 2" value="5"/>
+                <option label="RS485 traffic, all protocols" value="6"/>
             </options>
         </param>
     </params>
@@ -64,15 +68,11 @@ class BasePlugin:
 
     def onStart(self):
         global serialConn
-        if (Parameters["Mode6"] != "0"):
-            Domoticz.Debugging(int(Parameters["Mode6"]))
-
-        #if (Parameters["Mode6"] != "Normal"):
-        #    logFile = open(Parameters["HomeFolder"]+Parameters["Key"]+".log",'w')
-
+        dombus.logLevel=int(Parameters["Mode6"])
         SerialConn = Domoticz.Connection(Name="dombus_serial", Transport="Serial", Protocol="None", Address=Parameters["SerialPort"], Baud=115200)
         SerialConn.Connect()
         Domoticz.Log("Serial connection activated")
+        dombus.portsDisabledInit()
         DumpConfigToLog()
         return
 
@@ -139,6 +139,11 @@ class BasePlugin:
         #timestamp = str(int(time.time()))
         #Domoticz.Log("Heartbeat " + timestamp)
         dombus.send(Devices, SerialConn) #send frame, if any, or check if the status of a device should be transmitted (periodically transmit outputs status for every device)
+        #should I save portsDisabled dict on json file?
+        if (dombus.portsDisabledWrite>0):
+            dombus.portsDisabledWrite-=1
+            if (dombus.portsDisabledWrite==0):
+                dombus.portsDisabledWriteNow()
         return
     def onDeviceModified(self, Unit): #called when device is modified by the domoticz frontend (e.g. when description or name was changed by the user)
         Domoticz.Debug("Device description="+Devices[Unit].Description)
@@ -147,6 +152,7 @@ class BasePlugin:
         hwaddr="0x"+deviceID[1:5]
         frameAddr=int(hwaddr,16)
         port=int("0x"+deviceID[7:11],0)
+        dombus.getDeviceID(frameAddr, port) #used to set devID variable
         Domoticz.Debug("DeviceID="+deviceID+" hwaddr="+str(hwaddr)+" frameAddr="+str(hex(frameAddr))+" port="+str(port))
         opts=Devices[Unit].Description.upper().split(',')
         dombus.parseTypeOpt(Devices, Unit, opts, frameAddr, port)
@@ -212,5 +218,4 @@ def DumpConfigToLog():
         Domoticz.Debug("Device sValue:   '" + Devices[x].sValue + "'")
         Domoticz.Debug("Device LastLevel: " + str(Devices[x].LastLevel))
     return
-
 

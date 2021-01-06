@@ -3,6 +3,23 @@ Author: Paolo Subiaco  tech@creasol.it
 https://www.creasol.it/CreasolDomBus1
 
 ChangeLog
+0.0.5 2020-12-
+New logging function Log(level,msg) to send on log only the required messages
+(log verbosity set by Hardware parameter)
+
+Added devID variable for each device, to identify it quickly. devId=hwaddr.port, for
+example 103.1 for port 1 of device addr 0x0103. devID written on description
+with tag ID, e.g. ID=103.1
+
+Added DCMD command on description, to set a device command (command sent to
+another device), e.g.
+DCMD(Pulse)=103.1:TOGGLE    -- a short pulse on this input toggle the port 3 of device 0x0103
+DCMD(Pulse1)=103.2:ON:30m   -- a 1s pulse on this input turns ON port 2 of device 0x0103 for 30 minutes
+DCMD(Pulse2)=103.2:OFF    	-- a 2s pulse on this input turns OFF port 2 of device 0x0103
+
+Added CMD_DCMD_CONFIG command to configure DCMD[0..3] for each port
+CMD_DCMD_CONFIG|cmdLen/4|0, port, inCmd|(0..3<<5), inValueL[2], inValueH[2], outAddr[2], outPort, outCmd, outValue[2]
+
 0.0.4 2020-12-03
 BugFix: every 1 minute dombus plugin refreshes the output status, but 
 there was bug in refreshing dimmer status. Thanks to Giorgio for the support!
