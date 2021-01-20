@@ -32,6 +32,9 @@ import struct
 import re
 import json
 
+#if 1, when a module does not transmit for more than 15 minutes (MODULE_ALIVE_TIME), it will appear in red (TimedOut)
+PROTOCOL1_WITH_PERIODIC_TX=0    # set to 1 if all existing modules transmit their status periodically (oldest modules with protocol 1 did not)
+
 #some constants
 FRAME_LEN_MIN=6
 FRAME_LEN_MIN2=9    #Min length of frame for protocol 2
@@ -76,13 +79,14 @@ PORTTYPE_SENSOR_TEMP=0x4000     #Temperature
 PORTTYPE_SENSOR_HUM=0x8000      #Relative Humidity
 PORTTYPE_SENSOR_TEMP_HUM=0xc000 #Temp+Hum
 PORTTYPE_OUT_BLIND=0x01000000   #Blind output, close command (next port of DomBus device will be automatically used as Blind output, open command)
+PORTTYPE_OUT_ANALOG=0x02000000  #0-10V output, 1% step, 0-100
 
 PORTOPT_NONE=0x0000             #No options
 PORTOPT_INVERTED=0x0001         #Logical inverted: MUST BE 1
 
-PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244}
+PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244, PORTTYPE_OUT_ANALOG:244,}
 
-PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch"}
+PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer",}
 
 PORTTYPES={
         "DISABLED":0x0000,      # port not used
@@ -100,6 +104,7 @@ PORTTYPES={
         "HUMIDITY":0x8000,      # relative humidity
         "TEMP+HUM":0xc000,      # temp+hum
         "OUT_BLIND":0x01000000, # blind with up/down/stop command
+        "OUT_ANALOG":0x02000000,# 0-10V output, 0-100, 1% step
         }
 
 PORTOPTS={
@@ -124,6 +129,7 @@ PORTTYPENAME={  #Used to set the device TypeName
         "DISTANCE":"Distance",
 #        "OUT_BLIND":"Venetian Blinds EU", #not available in domoticz yet. hardware/plugins/PythonObjects.cpp must be updated!
         "OUT_BLIND":"Switch",
+        "OUT_ANALOG":"Dimmer",
         }
 
 DCMD_IN_EVENTS={
@@ -432,11 +438,14 @@ def txOutputsStatus(Devices,frameAddr):
         if (d.Used==1 and d.DeviceID[:7]==deviceIDMask):
             # device is used and matches frameAddr
             # check that this is an output
-            if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL] and re.search('(OUT_DIGITAL|OUT_RELAY_LP|OUT_DIMMER|OUT_BUZZER)',d.Description)):
+            if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL] and re.search('(OUT_DIGITAL|OUT_RELAY_LP|OUT_DIMMER|OUT_BUZZER|OUT_ANALOG)',d.Description)):
                 # output! get the port and output state
                 port=int("0x"+d.DeviceID[7:11],0)
                 if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-                    level=int(int(d.sValue)/5) if d.nValue==1 else 0
+                    if (re.search("OUT_ANALOG",d.Description)):
+                        level=int(d.sValue) if d.nValue==1 else 0 #1% step
+                    else:
+                        level=int(int(d.sValue)/5) if d.nValue==1 else 0    #soft dimmer => 5% step
                     txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[level],TX_RETRY,1) #Level: from 0 to 20 = 100%
                 elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
                     txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[d.nValue],TX_RETRY,1) #Level: 0, 10, 20, ....
@@ -457,7 +466,10 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
             if (Command=='Off'):
                 txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[0],TX_RETRY,1) #Level: from 0 to 20 = 100%
             else:
-                txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[int(Level/5)],TX_RETRY,1) #Level: from 0 to 20 = 100%
+                if (re.search('OUT_ANALOG',d.Description)):
+                    txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[int(Level)],TX_RETRY,1) #Level: from 0 to 100 = 100% (1% step)
+                else:
+                    txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[int(Level/5)],TX_RETRY,1) #Level: from 0 to 20 = 100% (5% step)
         elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
             txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[Level],TX_RETRY,1) #Level: 0, 10, 20, ....
         elif (hasattr(d,'SwitchType') and (d.SwitchType==15 or d.SwitchType==14)): #venetian blinds
@@ -485,7 +497,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     #read device description and set the last defined type (if written in the description, else transmit 0xffff that mean NO-CHANGE) and the port options (ORed) (if no options are written in the description, transmits 0xffff that mean NO CHANGE).
     global txQueue, portsDisabled, portsDisabledWrite, deviceID, devID
     getDeviceID(frameAddr,port)
-    Log(LOG_INFO,"Parse Description field for device "+devID)
+    Log(LOG_DEBUG,"Parse Description field for device "+devID)
     setOpt=0
     setType=0
     setHwaddr=0
@@ -854,29 +866,35 @@ def decode(Devices):
                             unit=getDeviceUnit(Devices,1) #1 means that it must scan all devices to find the right value of UnitFree
                             #Log(LOG_DEBUG,"DeviceID="+deviceID+" frameAddr="+hex(frameAddr)+" portType="+hex(portType)+" unit="+hex(unit)+" UnitFree="+str(UnitFree))
                             #check if frameAddr is in portsDisabled, and if the current port is disabled
-                            if (unit==0xffff and (deviceAddr not in portsDisabled.keys() or port not in portsDisabled[deviceAddr])):
-                                #port device not found, and is not disabled: create it!
-                                #portType is the numeric number provided by DOMBUS
-                                if (portType not in PORT_TYPENAME): portType=PORTTYPE_IN_DIGITAL   #default: Digital Input
-                                if (UnitFree>255 or UnitFree<1):
-                                    Log(LOG_ERR,"Maximum number of devices is reached! Domoticz supports max 255 devices for each protocol.\nUse more serial ports to separate modules in more buses, or disable unused ports in this way:\nselect port 1 of a module, and write in the description DISABLE=3:4:5:11 to disable, for example, ports 3,4,5 and 11 of that module")
+                            if ((deviceAddr not in portsDisabled.keys() or port not in portsDisabled[deviceAddr])):
+                                if (unit!=0xffff):
+                                    #unit found => remove TimedOut if set
+                                    if port==1:
+                                        Log(LOG_INFO,"Device "+"{:x}".format(frameAddr)+" has become active again")
+                                    Devices[unit].Update(nValue=Devices[unit].nValue, sValue=Devices[unit].sValue, TimedOut=0)
                                 else:
-                                    descr='ID='+devID+','
-                                    for key, value in PORTTYPES.items():
-                                        if (value==portType):
-                                            descr+=key+","
-                                            break
-                                    for key,value in PORTOPTS.items():
-                                        if (value&portOpt):
-                                            #descr=descr+key+","
-                                            descr+=key+","
-                                    if (descr!=''):
-                                        descr=descr[:-1]    #remove last comma ,
-                                    Log(LOG_INFO,"Add device "+deviceID+" deviceAddr="+deviceAddr+": "+portName+" Type="+str(portType)+" Opt="+str(portOpt)+" Description="+descr)
-                                    Log(LOG_INFO,"Name=["+devID+"] "+portName+", TypeName="+PORT_TYPENAME[portType]+", DeviceID="+deviceID+", Unit="+str(UnitFree))
-                                    Domoticz.Device(Name="["+devID+"] "+portName, TypeName=PORT_TYPENAME[portType], DeviceID=deviceID, Unit=UnitFree).Create()
-                                    if (frameAddr<=0xff00 or port==1):
-                                        Devices[UnitFree].Update(nValue=0, sValue='', Description=descr, Used=1)  # Add description (cannot be added with Create method)
+                                    #port device not found, and is not disabled: create it!
+                                    #portType is the numeric number provided by DOMBUS
+                                    if (portType not in PORT_TYPENAME): portType=PORTTYPE_IN_DIGITAL   #default: Digital Input
+                                    if (UnitFree>255 or UnitFree<1):
+                                        Log(LOG_ERR,"Maximum number of devices is reached! Domoticz supports max 255 devices for each protocol.\nUse more serial ports to separate modules in more buses, or disable unused ports in this way:\nselect port 1 of a module, and write in the description DISABLE=3:4:5:11 to disable, for example, ports 3,4,5 and 11 of that module")
+                                    else:
+                                        descr='ID='+devID+','
+                                        for key, value in PORTTYPES.items():
+                                            if (value==portType):
+                                                descr+=key+","
+                                                break
+                                        for key,value in PORTOPTS.items():
+                                            if (value&portOpt):
+                                                #descr=descr+key+","
+                                                descr+=key+","
+                                        if (descr!=''):
+                                            descr=descr[:-1]    #remove last comma ,
+                                        Log(LOG_INFO,"Add device "+deviceID+" deviceAddr="+deviceAddr+": "+portName+" Type="+str(portType)+" Opt="+str(portOpt)+" Description="+descr)
+                                        Log(LOG_INFO,"Name=["+devID+"] "+portName+", TypeName="+PORT_TYPENAME[portType]+", DeviceID="+deviceID+", Unit="+str(UnitFree))
+                                        Domoticz.Device(Name="["+devID+"] "+portName, TypeName=PORT_TYPENAME[portType], DeviceID=deviceID, Unit=UnitFree).Create()
+                                        if (frameAddr<=0xff00 or port==1):
+                                            Devices[UnitFree].Update(nValue=0, sValue='', Description=descr, Used=1)  # Add description (cannot be added with Create method)
                             port+=1;
                 #TODO elif (cmd==CMD_DCMD): #decode DCMD frame to get the STATUS word?
             else:
@@ -1025,7 +1043,7 @@ def send(Devices, SerialConn):
                     txbuffer.append(port)
                     txbufferIndex+=1
                     for i in range(0,cmdLen-1):
-                        txbuffer.append(args[i])
+                        txbuffer.append((args[i]&0xff))
                         txbufferIndex+=1
 
                     if (protocol!=1 and (cmdLen&1)):  #cmdLen is odd => add a dummy byte to get even cmdLen
@@ -1055,13 +1073,21 @@ def send(Devices, SerialConn):
         else: #No frame to be TXed for this frameAddr
             #check that module is active
             if (timeFromLastRx>MODULE_ALIVE_TIME):
-                if (protocol==2):
+                if (protocol==2 or PROTOCOL1_WITH_PERIODIC_TX):
                     # too long time since last RX from this module: remove it from modules
                     Log(LOG_INFO,"Remove module "+hex(frameAddr)+" because it's not alive")
                     delmodules.append(frameAddr)
                     # also remove any cmd in the txQueue
                     Log(LOG_INFO,"Remove txQueue for "+hex(frameAddr))
                     txQueueRemove(frameAddr,255,255)
+                    Log(LOG_INFO,"Set devices in timedOut mode (red header) for this module")
+                    deviceIDMask="H{:04x}_P".format(frameAddr)
+                    for Device in Devices:
+                        d=Devices[Device]
+                        if (d.Used==1 and d.DeviceID[:7]==deviceIDMask):
+                            # device is used and matches frameAddr
+                            d.Update(nValue=d.nValue, sValue=d.sValue, TimedOut=1) #set device in TimedOut mode (red bar)
+
                 #Note: if protocol==1, maybe it uses an old firmware that does not transmit status periodically: don't remove it
                 
     for d in delmodules:    #remove module address of died modules (that do not answer since long time (MODULE_ALIVE_TIME))
