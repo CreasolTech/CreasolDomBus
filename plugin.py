@@ -93,6 +93,7 @@ class BasePlugin:
 
     def onMessage(self, Connection, Data):
         dombus.rxbuffer+=Data
+        #Domoticz.Log("Received bytes="+str(len(Data))+" Bytes in rxbuffer="+str(len(dombus.rxbuffer)))
         while (1):
             length=len(dombus.rxbuffer)
             if (length>=dombus.FRAME_LEN_MIN):

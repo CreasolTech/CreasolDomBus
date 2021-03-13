@@ -3,9 +3,12 @@ Author: Paolo Subiaco  tech@creasol.it
 https://www.creasol.it/CreasolDomBus1
 
 ChangeLog
-0.0.5 2021-
+0.0.5 2021-03-13
 New logging function Log(level,msg) to send on log only the required messages
-(log verbosity set by Hardware parameter)
+(log verbosity set by Hardware Debug parameter)
+
+If a frame with invalid length is received => remove it from the rx buffer and
+wait for a new one
 
 Added devID variable for each device, to identify it quickly. devId=hwaddr.port, for
 example 103.1 for port 1 of device addr 0x0103. devID written on description
