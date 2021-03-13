@@ -987,9 +987,9 @@ def decode(Devices):
                 if (frameLen<250):  #if frameLen is reasonable, wait for new data, else pass to the next PREAMBLE
                     dump(1, rxbuffer,frameLen,"RXinc")
                     return
-    dump(1, rxbuffer,frameLen,"RXbad")
-    rxbuffer.pop(0)
-    Log(LOG_WARN,"Frame length error:"+str(frameLen)+" while len(rxbuffer)="+str(len(rxbuffer)))
+        dump(1, rxbuffer,frameLen,"RXbad")
+        rxbuffer.pop(0)
+        Log(LOG_WARN,"Frame length error:"+str(frameLen)+" while len(rxbuffer)="+str(len(rxbuffer)))
     return
 def send(Devices, SerialConn):
     #create frames from txQueue[], 1 for each address, and start transmitting
