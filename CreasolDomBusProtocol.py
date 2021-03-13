@@ -990,128 +990,126 @@ def decode(Devices):
     dump(1, rxbuffer,frameLen,"RXbad")
     rxbuffer.pop(0)
     Log(LOG_WARN,"Frame length error:"+str(frameLen)+" while len(rxbuffer)="+str(len(rxbuffer)))
-return
+    return
 def send(Devices, SerialConn):
-#create frames from txQueue[], 1 for each address, and start transmitting
-global modules, txQueue, ms
-# txQueue[frameAddr]=[[cmd, cmdLen, cmdAck, port, [arg1, arg2, arg3, ...], retries]]
-tx=0
-sec=int(time.time())
-ms=int(time.time()*1000)
-# scan all modules
-delmodules=[]
-#TODO: set protocol !!!!
-for frameAddr,module in modules.items(): 
-    timeFromLastTx=ms-module[LASTTX]        #number of milliseconds since last TXed frame
-    timeFromLastRx=sec-module[LASTRX]       #number of seconds since last RXed frame
-    timeFromLastStatus=sec-module[LASTSTATUS]     #number of seconds since last TXed output status
-    protocol=module[LASTPROTOCOL]           # 1=old protocol, 2=new protocol
-    #Log(LOG_DEBUG,"send(): frameAddr="+hex(frameAddr)+" protocol="+str(protocol)+" timeFromLastTx="+str(timeFromLastTx)+"ms timeFromLastRx="+str(timeFromLastRx)+"s lastStatus="+str(timeFromLastStatus)+"s")
-    if (len(txQueue[frameAddr])>0):
-        retry=module[LASTRETRY]                         #number of retris (0,1,2,3...): used to compute the retry period
-        if (retry>TX_RETRY):
-            retry=TX_RETRY
-        if (timeFromLastTx>(TX_RETRY_TIME<<retry)):
-            if (protocol==0 and retry>=TX_RETRY-5 and (retry&1)):
-                protocol=1  #protocol not defined: maybe it's a old device that does not transmit periodic status
-            #start txing
-            tx=1
-            txbuffer=bytearray()
-            if (protocol==1):
-                txbuffer.append(PREAMBLE_MASTER)
-                txbuffer.append(frameAddr>>8)
-                txbuffer.append(frameAddr&0xff)
-                txbuffer.append(0)
-                txbufferIndex=FRAME_HEADER
-            else: #protocol=2
-                txbuffer.append(PREAMBLE)
-                txbuffer.append(frameAddr>>8)       #dstAddr
-                txbuffer.append(frameAddr&0xff)
-                txbuffer.append(0)                  #master address
-                txbuffer.append(0)
-                txbuffer.append(0)                  #length
-                txbufferIndex=FRAME_HEADER2
-            for txq in txQueue[frameAddr][:]:    #iterate a copy of txQueue[frameAddr]
-                #[cmd,cmdLen,cmdAck,port,[*args]]
-                (cmd,cmdLen,cmdAck,port,args,retry)=txq
-                #Log(LOG_DEBUG,"protocol="+str(protocol)+" cmd="+str(cmd)+" port="+str(port))
-                if (txbufferIndex+cmdLen+2>=FRAME_LEN_MAX): 
-                    break   #frame must be truncated
+    #create frames from txQueue[], 1 for each address, and start transmitting
+    global modules, txQueue, ms
+    # txQueue[frameAddr]=[[cmd, cmdLen, cmdAck, port, [arg1, arg2, arg3, ...], retries]]
+    tx=0
+    sec=int(time.time())
+    ms=int(time.time()*1000)
+    # scan all modules
+    delmodules=[]
+    #TODO: set protocol !!!!
+    for frameAddr,module in modules.items(): 
+        timeFromLastTx=ms-module[LASTTX]        #number of milliseconds since last TXed frame
+        timeFromLastRx=sec-module[LASTRX]       #number of seconds since last RXed frame
+        timeFromLastStatus=sec-module[LASTSTATUS]     #number of seconds since last TXed output status
+        protocol=module[LASTPROTOCOL]           # 1=old protocol, 2=new protocol
+        #Log(LOG_DEBUG,"send(): frameAddr="+hex(frameAddr)+" protocol="+str(protocol)+" timeFromLastTx="+str(timeFromLastTx)+"ms timeFromLastRx="+str(timeFromLastRx)+"s lastStatus="+str(timeFromLastStatus)+"s")
+        if (len(txQueue[frameAddr])>0):
+            retry=module[LASTRETRY]                         #number of retris (0,1,2,3...): used to compute the retry period
+            if (retry>TX_RETRY):
+                retry=TX_RETRY
+            if (timeFromLastTx>(TX_RETRY_TIME<<retry)):
+                if (protocol==0 and retry>=TX_RETRY-5 and (retry&1)):
+                    protocol=1  #protocol not defined: maybe it's a old device that does not transmit periodic status
+                #start txing
+                tx=1
+                txbuffer=bytearray()
                 if (protocol==1):
-                    txbuffer.append((cmd|cmdLen|cmdAck))
-                    txbufferIndex+=1
-                else:
-                    txbuffer.append((cmd|cmdAck|int((cmdLen+1)/2)))   #cmdLen field is the number of cmd payload/2, so if after cmd there are 3 or 4 bytes, cmdLen field must be 2 (corresponding to 4 bytes)
-                    txbufferIndex+=1
-                txbuffer.append(port)
-                txbufferIndex+=1
-                for i in range(0,cmdLen-1):
-                    txbuffer.append((args[i]&0xff))
-                    txbufferIndex+=1
-
-                if (protocol!=1 and (cmdLen&1)):  #cmdLen is odd => add a dummy byte to get even cmdLen
+                    txbuffer.append(PREAMBLE_MASTER)
+                    txbuffer.append(frameAddr>>8)
+                    txbuffer.append(frameAddr&0xff)
                     txbuffer.append(0)
+                    txbufferIndex=FRAME_HEADER
+                else: #protocol=2
+                    txbuffer.append(PREAMBLE)
+                    txbuffer.append(frameAddr>>8)       #dstAddr
+                    txbuffer.append(frameAddr&0xff)
+                    txbuffer.append(0)                  #master address
+                    txbuffer.append(0)
+                    txbuffer.append(0)                  #length
+                    txbufferIndex=FRAME_HEADER2
+                for txq in txQueue[frameAddr][:]:    #iterate a copy of txQueue[frameAddr]
+                    #[cmd,cmdLen,cmdAck,port,[*args]]
+                    (cmd,cmdLen,cmdAck,port,args,retry)=txq
+                    #Log(LOG_DEBUG,"protocol="+str(protocol)+" cmd="+str(cmd)+" port="+str(port))
+                    if (txbufferIndex+cmdLen+2>=FRAME_LEN_MAX): 
+                        break   #frame must be truncated
+                    if (protocol==1):
+                        txbuffer.append((cmd|cmdLen|cmdAck))
+                        txbufferIndex+=1
+                    else:
+                        txbuffer.append((cmd|cmdAck|int((cmdLen+1)/2)))   #cmdLen field is the number of cmd payload/2, so if after cmd there are 3 or 4 bytes, cmdLen field must be 2 (corresponding to 4 bytes)
+                        txbufferIndex+=1
+                    txbuffer.append(port)
                     txbufferIndex+=1
+                    for i in range(0,cmdLen-1):
+                        txbuffer.append((args[i]&0xff))
+                        txbufferIndex+=1
 
-                # if this cmd is an ACK, or values[0]==1, remove command from the queue
-                if (cmdAck or retry<=1):
-                    txQueue[frameAddr].remove(txq)
+                    if (protocol!=1 and (cmdLen&1)):  #cmdLen is odd => add a dummy byte to get even cmdLen
+                        txbuffer.append(0)
+                        txbufferIndex+=1
+
+                    # if this cmd is an ACK, or values[0]==1, remove command from the queue
+                    if (cmdAck or retry<=1):
+                        txQueue[frameAddr].remove(txq)
+                    else:
+                        txq[TXQ_RETRIES]=retry-1   #command, no ack: decrement retry
+                if (protocol==1):
+                    txbuffer[FRAME_LEN]=(txbufferIndex-FRAME_HEADER)
                 else:
-                    txq[TXQ_RETRIES]=retry-1   #command, no ack: decrement retry
-            if (protocol==1):
-                txbuffer[FRAME_LEN]=(txbufferIndex-FRAME_HEADER)
-            else:
-                txbuffer[FRAME_LEN2]=(txbufferIndex-FRAME_HEADER2)
-            module[LASTRETRY]+=1    #increment RETRY to multiply the retry period * 2
-            if (module[LASTRETRY]>=TX_RETRY):
-                module[LASTRETRY]=4;
-                module[LASTPROTOCOL]=0  #module does not renspond => reset protocol so both protocol 1 and 2 will be checked next time
-            checksum(protocol, txbuffer)
-            txbuffer.append(checksumValue)
-            txbufferIndex+=1
-            SerialConn.Send(txbuffer)
-            if (logLevel>=LOG_DUMPALL or (logLevel>=LOG_DUMP and protocol==2)):
-                dump(protocol, txbuffer, txbufferIndex,"TX")
-            modules[frameAddr][LASTTX]=ms
+                    txbuffer[FRAME_LEN2]=(txbufferIndex-FRAME_HEADER2)
+                module[LASTRETRY]+=1    #increment RETRY to multiply the retry period * 2
+                if (module[LASTRETRY]>=TX_RETRY):
+                    module[LASTRETRY]=4;
+                    module[LASTPROTOCOL]=0  #module does not renspond => reset protocol so both protocol 1 and 2 will be checked next time
+                checksum(protocol, txbuffer)
+                txbuffer.append(checksumValue)
+                txbufferIndex+=1
+                SerialConn.Send(txbuffer)
+                if (logLevel>=LOG_DUMPALL or (logLevel>=LOG_DUMP and protocol==2)):
+                    dump(protocol, txbuffer, txbufferIndex,"TX")
+                modules[frameAddr][LASTTX]=ms
 
-    else: #No frame to be TXed for this frameAddr
-        #check that module is active
-        if (timeFromLastRx>MODULE_ALIVE_TIME):
-            if (protocol==2 or PROTOCOL1_WITH_PERIODIC_TX):
-                # too long time since last RX from this module: remove it from modules
-                Log(LOG_INFO,"Remove module "+hex(frameAddr)+" because it's not alive")
-                delmodules.append(frameAddr)
-                # also remove any cmd in the txQueue
-                Log(LOG_INFO,"Remove txQueue for "+hex(frameAddr))
-                txQueueRemove(frameAddr,255,255)
-                Log(LOG_INFO,"Set devices in timedOut mode (red header) for this module")
-                deviceIDMask="H{:04x}_P".format(frameAddr)
-                for Device in Devices:
-                    d=Devices[Device]
-                    if (d.Used==1 and d.DeviceID[:7]==deviceIDMask):
-                        # device is used and matches frameAddr
-                        d.Update(nValue=d.nValue, sValue=d.sValue, TimedOut=1) #set device in TimedOut mode (red bar)
+        else: #No frame to be TXed for this frameAddr
+            #check that module is active
+            if (timeFromLastRx>MODULE_ALIVE_TIME):
+                if (protocol==2 or PROTOCOL1_WITH_PERIODIC_TX):
+                    # too long time since last RX from this module: remove it from modules
+                    Log(LOG_INFO,"Remove module "+hex(frameAddr)+" because it's not alive")
+                    delmodules.append(frameAddr)
+                    # also remove any cmd in the txQueue
+                    Log(LOG_INFO,"Remove txQueue for "+hex(frameAddr))
+                    txQueueRemove(frameAddr,255,255)
+                    Log(LOG_INFO,"Set devices in timedOut mode (red header) for this module")
+                    deviceIDMask="H{:04x}_P".format(frameAddr)
+                    for Device in Devices:
+                        d=Devices[Device]
+                        if (d.Used==1 and d.DeviceID[:7]==deviceIDMask):
+                            # device is used and matches frameAddr
+                            d.Update(nValue=d.nValue, sValue=d.sValue, TimedOut=1) #set device in TimedOut mode (red bar)
 
-            #Note: if protocol==1, maybe it uses an old firmware that does not transmit status periodically: don't remove it
-            
-for d in delmodules:    #remove module address of died modules (that do not answer since long time (MODULE_ALIVE_TIME))
-    del modules[d]
+                #Note: if protocol==1, maybe it uses an old firmware that does not transmit status periodically: don't remove it
+                
+    for d in delmodules:    #remove module address of died modules (that do not answer since long time (MODULE_ALIVE_TIME))
+        del modules[d]
 
-if (tx==0): #nothing has been transmitted: send outputs status for device with older lastStatus
-    olderFrameAddr=0
-    olderTime=sec
-    # find the device that I sent the output status earlier
-    for frameAddr,module in modules.items():
-        if module[LASTSTATUS]<olderTime:
-            #this is the older device I sent status, till now
-            olderTime=module[LASTSTATUS]
-            olderFrameAddr=frameAddr
-    # transmit only the output status of the older device, if last time I transmitted the status was at least PERIODIC_STATUS_INTERVAL seconds ago
-    if (sec-olderTime > PERIODIC_STATUS_INTERVAL):
-        modules[olderFrameAddr][LASTSTATUS]=sec+(olderFrameAddr&0x000f)   #set current time + extra seconds to avoid all devices been refresh together
-        #Log(LOG_DEBUG,"send(): Transmit outputs Status for "+hex(olderFrameAddr))
-        txOutputsStatus(Devices, olderFrameAddr)
-return
-
-
+    if (tx==0): #nothing has been transmitted: send outputs status for device with older lastStatus
+        olderFrameAddr=0
+        olderTime=sec
+        # find the device that I sent the output status earlier
+        for frameAddr,module in modules.items():
+            if module[LASTSTATUS]<olderTime:
+                #this is the older device I sent status, till now
+                olderTime=module[LASTSTATUS]
+                olderFrameAddr=frameAddr
+        # transmit only the output status of the older device, if last time I transmitted the status was at least PERIODIC_STATUS_INTERVAL seconds ago
+        if (sec-olderTime > PERIODIC_STATUS_INTERVAL):
+            modules[olderFrameAddr][LASTSTATUS]=sec+(olderFrameAddr&0x000f)   #set current time + extra seconds to avoid all devices been refresh together
+            #Log(LOG_DEBUG,"send(): Transmit outputs Status for "+hex(olderFrameAddr))
+            txOutputsStatus(Devices, olderFrameAddr)
+    return
 
