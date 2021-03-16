@@ -1,14 +1,12 @@
 Creasol DomBus plugin for Domoticz.
-Author: Paolo Subiaco  tech@creasol.it
-https://www.creasol.it/CreasolDomBus1
+Author: Paolo Subiaco  linux@creasol.it
+https://www.creasol.it/domotics
+Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
-0.0.5 2021-03-13
+1.0.1 2021-03-16
 New logging function Log(level,msg) to send on log only the required messages
-(log verbosity set by Hardware Debug parameter)
-
-If a frame with invalid length is received => remove it from the rx buffer and
-wait for a new one
+(log verbosity set by Hardware parameter)
 
 Added devID variable for each device, to identify it quickly. devId=hwaddr.port, for
 example 103.1 for port 1 of device addr 0x0103. devID written on description
@@ -26,6 +24,9 @@ CMD_DCMD_CONFIG|cmdLen/4|0, port, inCmd|(0..3<<5), inValueL[2], inValueH[2], out
 Added timeout management: if a module doesn't send anything for more than 15
 minutes, all devices for that module will be displayed with a red header
 (TimedOut)
+
+Added IN_COUNTER type, to manage incremental counters and kWh with power
+calculation
 
 0.0.4 2020-12-03
 BugFix: every 1 minute dombus plugin refreshes the output status, but 

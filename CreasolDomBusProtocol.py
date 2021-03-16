@@ -73,6 +73,7 @@ PORTTYPE_IN_AC=0x0040           #input AC 50Hz (with optocoupler)
 PORTTYPE_IN_DIGITAL=0x0080      #input digital
 PORTTYPE_IN_ANALOG=0x0100       #input analog (ADC)
 PORTTYPE_IN_TWINBUTTON=0x0200   #2 buttons connected to a single input through a resistor
+PORTTYPE_IN_COUNTER=0x0400      #input pulses that increase a counter (incremental)
 PORTTYPE_1WIRE=0x1000           #1 wire
 PORTTYPE_SENSOR_DISTANCE=0x2000 #distance measurement (send a pulse and measure echo delay)
 PORTTYPE_SENSOR_TEMP=0x4000     #Temperature
@@ -84,27 +85,28 @@ PORTTYPE_OUT_ANALOG=0x02000000  #0-10V output, 1% step, 0-100
 PORTOPT_NONE=0x0000             #No options
 PORTOPT_INVERTED=0x0001         #Logical inverted: MUST BE 1
 
-PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244, PORTTYPE_OUT_ANALOG:244,}
+PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_IN_COUNTER:243, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244, PORTTYPE_OUT_ANALOG:244}
 
-PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer",}
+PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_IN_COUNTER:"Counter Incremental", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer",}
 
 PORTTYPES={
-        "DISABLED":0x0000,      # port not used
-        "OUT_DIGITAL":0x0002,   # relay output
-        "OUT_RELAY_LP":0x0004,  # relay output
-        "OUT_LEDSTATUS":0x0008, # output used as led status
-        "OUT_DIMMER":0x0010,    # dimmer output
-        "OUT_BUZZER":0x0020,    # buzzer output (2 ports, push-pull)
-        "IN_AC":0x0040,         # input AC 50Hz (with optocoupler)
-        "IN_DIGITAL":0x0080,    # input digital
-        "IN_ANALOG":0x0100,     # input analog (ADC)
-        "IN_TWINBUTTON":0x0200, # 2 buttons connected to a single input through a resistor
-        "DISTANCE":0x2000,      # measure distance in mm
-        "TEMPERATURE":0x4000,   # temperature
-        "HUMIDITY":0x8000,      # relative humidity
-        "TEMP+HUM":0xc000,      # temp+hum
-        "OUT_BLIND":0x01000000, # blind with up/down/stop command
-        "OUT_ANALOG":0x02000000,# 0-10V output, 0-100, 1% step
+        "DISABLED":0x0000,          # port not used
+        "OUT_DIGITAL":0x0002,       # relay output
+        "OUT_RELAY_LP":0x0004,      # relay output
+        "OUT_LEDSTATUS":0x0008,     # output used as led status
+        "OUT_DIMMER":0x0010,        # dimmer output
+        "OUT_BUZZER":0x0020,        # buzzer output (2 ports, push-pull)
+        "IN_AC":0x0040,             # input AC 50Hz (with optocoupler)
+        "IN_DIGITAL":0x0080,        # input digital
+        "IN_ANALOG":0x0100,         # input analog (ADC)
+        "IN_TWINBUTTON":0x0200,     # 2 buttons connected to a single input through a resistor
+        "IN_COUNTER":0x0400,        # pulse counter
+        "DISTANCE":0x2000,          # measure distance in mm
+        "TEMPERATURE":0x4000,       # temperature
+        "HUMIDITY":0x8000,          # relative humidity
+        "TEMP+HUM":0xc000,          # temp+hum
+        "OUT_BLIND":0x01000000,     # blind with up/down/stop command
+        "OUT_ANALOG":0x02000000,    # 0-10V output, 0-100, 1% step
         }
 
 PORTOPTS={
@@ -123,6 +125,7 @@ PORTTYPENAME={  #Used to set the device TypeName
         "IN_DIGITAL":"Switch",
         "IN_ANALOG":"Voltage",
         "IN_TWINBUTTON":"Selector Switch",
+        "IN_COUNTER":"Counter Incremental",
         "HUMIDITY":"Humidity",
         "TEMPERATURE":"Temperature",
         "TEMP+HUM":"Temp+Hum",
@@ -190,6 +193,8 @@ LOG_NAMES=["NONE: ","ERROR:","WARN: ","INFO: ","DEBUG:","DUMP: "]
 logLevel=LOG_NONE  #defaul log level: will be initialized by onStart()
 
 PORTSDISABLED="plugins/CreasolDomBus/portsDisabled.json"
+
+counterTime={}
 
 def __init__(self):
     return
@@ -315,7 +320,7 @@ def getDeviceUnit(Devices,findUnitFreeMax):
     unitmax=0
     UnitFree=0xffff
     for unit in range(1,256):
-        if (unit in Devices.keys()):
+        if (unit in Devices):
             #Devices[unit] exists
             if (Devices[unit].DeviceID==deviceID):
                 #this unit corresponds with the deviceID
@@ -377,9 +382,9 @@ def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
     sec=int(time.time())
     if protocol==0:
         # check if module already in modules[]
-        if (frameAddr in modules.keys()):
+        if (frameAddr in modules):
             protocol=modules[frameAddr][LASTPROTOCOL]
-    if len(txQueue)==0 or frameAddr not in txQueue.keys():
+    if len(txQueue)==0 or frameAddr not in txQueue:
         #create txQueue[frameAddr]
         txQueue[frameAddr]=[[cmd, cmdLen, cmdAck, port, args, retries]]
 #        Log(LOG_DEBUG,"txQueueAdd (frameAddr do not exist) frameAddr="+hex(frameAddr)+" cmd="+hex(cmd|cmdAck|cmdLen)+" port="+hex(port))
@@ -400,7 +405,7 @@ def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
 #            Log(LOG_DEBUG,"txQueueAdd: frameAddr="+hex(frameAddr)+" cmd="+hex(cmd|cmdAck|cmdLen)+" port="+hex(port))
         #txQueueRetry: don't modify it... transmit when retry time expires (maybe now or soon)
     #check that modules[frameAddr] exists
-    if (frameAddr not in modules.keys()):
+    if (frameAddr not in modules):
         # add frameAddr in modules
         #                   lastRx         lastTx   lastSentStatus => lastTx=0 => transmit now
         modules[frameAddr]=[sec, 0, sec+3-PERIODIC_STATUS_INTERVAL, protocol, 0] #transmit output status in 3 seconds
@@ -421,7 +426,7 @@ def txQueueRemove(frameAddr,cmd,port):
     # if cmd==255 and port==255 => remove all frames for module frameAddr
     global txQueue
     removeItems=[]
-    if len(txQueue)!=0 and frameAddr in txQueue.keys():
+    if len(txQueue)!=0 and frameAddr in txQueue:
         for f in txQueue[frameAddr][:]:
             #Log(LOG_DEBUG,"f="+str(f))
             #f=[cmd,cmdlen,cmdAck,port,args[],retries]
@@ -514,43 +519,45 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     dcmd=[]   
     for opt in opts:
         opt=opt.strip()
-        if opt in PORTTYPES.keys():
+        optu=opt.upper()
+        Log(LOG_DEBUG,"opt="+str(opt))
+        if optu in PORTTYPES:
             #opt="OUT_DIGITAL" or DISTANCE or ....
-            setType=PORTTYPES[opt]      # setType=0x2000 if DISTANCE is specified
+            setType=PORTTYPES[optu]      # setType=0x2000 if DISTANCE is specified
             setTypeDefined=1            #setTypeDefined=1
-            setTypeName=opt             #setTypeName=DISTANCE
-            typeName=PORTTYPENAME[opt]  #typeName=Temperature
-        elif opt in PORTOPTS.keys():
-            if (opt=="NORMAL"):
+            setTypeName=optu             #setTypeName=DISTANCE
+            typeName=PORTTYPENAME[optu]  #typeName=Temperature
+            Log(LOG_DEBUG,"opt="+str(opt)+" setType="+str(PORTTYPES[optu])+" typeName="+str(PORTTYPENAME[optu]))
+        elif optu in PORTOPTS:
+            if (optu=="NORMAL"):
                 setOpt=0
                 setOptNames=''
             else:
-                setOpt=setOpt|PORTOPTS[opt]
+                setOpt=setOpt|PORTOPTS[optu]
                 setOptNames+=opt+","
             setOptDefined=1
-        elif opt[:2]=="A=":
+        elif optu[:2]=="A=":
             setOptNames+=opt+","
-        elif opt[:2]=="B=":
+        elif optu[:2]=="B=":
             setOptNames+=opt+","
-        elif opt[:4]=="CAL=":       # calibration value: should be expressed as integer (e.g. temperatureOffset*10)
+        elif optu[:4]=="CAL=":       # calibration value: should be expressed as integer (e.g. temperatureOffset*10)
             setCal=int(float(opt[4:])*10) 
-        elif opt[:9]=="TYPENAME=":
+        elif optu[:9]=="TYPENAME=":
             typeName=opt[9:]
             setOptNames+=opt+","
-        elif opt[:9]=="HWADDR=0X" and len(opt)==13:
+        elif optu[:9]=="HWADDR=0X" and len(opt)==13:
             #set hardware address
-            hwaddr=int(opt[7:],16)
+            hwaddr=int(optu[7:],16)
             if (hwaddr>=1 and hwaddr<65535):
                 setHwaddr=hwaddr
-        elif opt[:8]=="DISABLE=":
+        elif optu[:8]=="DISABLE=":
             #set which ports are enabled, for this device, and remove disabled ports to free space in Devices[]
             #syntax: ENABLE=1:2:3:4:5
             setOptNames+="DISABLE="
             portsDisabled[deviceAddr]=[]
             portsDisabledWrite=6   #write portDisabled on a json file in 6*heartbeat_interval (6*10s)
-            portsDisabledWrite=1   ##DEBUG
 
-            for ps in opt[8:].split(':'):
+            for ps in optu[8:].split(':'):
                 try:
                     p=int(ps)
                 except:
@@ -572,22 +579,23 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             if (setOptNames[-1:]==':'):
                 setOptNames=setOptNames[:-1]    #remove trailing ':'
             setOptNames+=','                    
-        elif (opt[:6]=="DESCR=" or opt[:10]=="TIMECLOSE=" or opt[:9]=="TIMEOPEN="):
+        elif (optu[:6]=="DESCR=" or optu[:10]=="TIMECLOSE=" or optu[:9]=="TIMEOPEN="):
             setOptNames+=opt+","
-        elif (opt[:5]=="DCMD("):
+        elif (optu[:5]=="DCMD("):
             #command to another dombus
             errmsg=''  
             d=[ DCMD_IN_EVENTS['NONE'], 0, 0, 0, 0, DCMD_OUT_CMDS['NONE'], 0 ] #temp list to store a DCMD command
             
             opt=re.sub("ERROR=.*", "", opt) #remove any Error=blablabla from the command
-            inputs=re.search('DCMD\((.+)\)=(.+\..+:.+)', opt)
+            optu=opt.upper()
+            inputs=re.search('DCMD\((.+)\)=(.+\..+:.+)', optu)
             if inputs:
                 #syntax of DCMD command semms to be ok
                 inArr=inputs.group(1).split(':')    #inArr=['Value','0','20.5'] (inputs) 
                 outArr=inputs.group(2).split(':')   #
                 if (len(inArr)>=1):
                     Log(LOG_INFO,"DCMD: "+opt+" Input event="+str(inArr)+" Output command="+str(outArr))
-                    if (inArr[0] in DCMD_IN_EVENTS.keys()): 
+                    if (inArr[0] in DCMD_IN_EVENTS): 
                         d[0]=DCMD_IN_EVENTS[inArr[0]]
                         d[1]=0
                         d1ok=0
@@ -618,7 +626,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
                                     d[2]=convertValueToDombus(Devices[Unit],d[2])
                                 Log(LOG_DEBUG,"d[1]="+str(d[1])+" d[2]="+str(d[2]))
                         if (len(outArr)>=2):
-                            if (outArr[1] in DCMD_OUT_CMDS.keys()):
+                            if (outArr[1] in DCMD_OUT_CMDS):
                                 #outArr[0]=101.4
                                 #outArr[1]=ON
                                 hwaddrport=outArr[0].split('.')
@@ -719,8 +727,10 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     if (setTypeDefined): #type was defined in the description => change TypeName, if different
         if (typeName=="Selector Switch"):
             Options = {"LevelActions": "||","LevelNames": "Off|Down|Up", "LevelOffHidden": "false","SelectorStyle": "0"}
+            Log(LOG_INFO,"TypeName="+str(typeName)+", nValue=0, sValue=\"Off\", Description="+str(descr))
             Devices[Unit].Update(TypeName=typeName, nValue=0, sValue="Off", Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
         else:
+            Log(LOG_INFO,"TypeName="+str(typeName)+", nValue="+str(Devices[Unit].nValue)+", sValue="+str(Devices[Unit].sValue)+", Description="+str(descr))
             Devices[Unit].Update(TypeName=typeName, nValue=Devices[Unit].nValue, sValue=Devices[Unit].sValue, Description=str(descr))  # Update description (removing HWADDR=0x1234)
     else: #type not defined in description => don't change it!
         Devices[Unit].Update(nValue=Devices[Unit].nValue, sValue=Devices[Unit].sValue, Description=str(descr))  # Update description (removing HWADDR=0x1234)
@@ -759,7 +769,7 @@ def decode(Devices):
                 frameAddr=int(rxbuffer[1])*256+int(rxbuffer[2])
                 frameIdx=FRAME_HEADER
                 dstAddr=0;  #not specified in this protocol => force dstAddr=0
-                if frameAddr!=0xffff and frameAddr not in modules.keys(): 
+                if frameAddr!=0xffff and frameAddr not in modules: 
                     # first time receive data from this module: ask for configuration?
                     modules[frameAddr]=[int(time.time()),0,0,protocol,0]   #transmit now the output status
                     #ask for port configuration?
@@ -787,7 +797,7 @@ def decode(Devices):
                 frameAddr=int(rxbuffer[3])*256+int(rxbuffer[4]) #sender
                 dstAddr=int(rxbuffer[1])*256+int(rxbuffer[2])   #destination
                 frameIdx=FRAME_HEADER2
-                if (frameAddr!=0xffff and frameAddr not in modules.keys()): 
+                if (frameAddr!=0xffff and frameAddr not in modules): 
                     # first time receive data from this module: ask for configuration?
                     modules[frameAddr]=[int(time.time()),0,0,protocol,0]   #transmit now the output status
                     #ask for port configuration?
@@ -868,11 +878,11 @@ def decode(Devices):
                             unit=getDeviceUnit(Devices,1) #1 means that it must scan all devices to find the right value of UnitFree
                             #Log(LOG_DEBUG,"DeviceID="+deviceID+" frameAddr="+hex(frameAddr)+" portType="+hex(portType)+" unit="+hex(unit)+" UnitFree="+str(UnitFree))
                             #check if frameAddr is in portsDisabled, and if the current port is disabled
-                            if ((deviceAddr not in portsDisabled.keys() or port not in portsDisabled[deviceAddr])):
+                            if ((deviceAddr not in portsDisabled or port not in portsDisabled[deviceAddr])):
                                 if (unit!=0xffff):
                                     #unit found => remove TimedOut if set
                                     if port==1:
-                                        Log(LOG_INFO,"Device "+"{:x}".format(frameAddr)+" has become active again")
+                                        Log(LOG_INFO,"Device "+devID+" is now active again")
                                     Devices[unit].Update(nValue=Devices[unit].nValue, sValue=Devices[unit].sValue, TimedOut=0)
                                 else:
                                     #port device not found, and is not disabled: create it!
@@ -909,8 +919,15 @@ def decode(Devices):
                         UnitFree=1
                         unit=getDeviceUnit(Devices,0)
                         if (unit==0xffff):
-                            #got a frame from a unknown device: ask for configuration
-                            txQueueAskConfig(protocol,frameAddr)
+                            if ((deviceAddr not in portsDisabled or port not in portsDisabled[deviceAddr])):
+                                #got a frame from a unknown device, that is not disabled => ask for configuration
+                                #Log(LOG_DEBUG,"Device="+devID+" portsDisabled["+str(deviceAddr)+"]="+portsDisabled[deviceAddr]+" => Ask config")
+                                txQueueAskConfig(protocol,frameAddr)
+                            else:
+                                # ports is disabled => send ACK anyway, to prevent useless retries
+                                #Log(LOG_DEBUG,"Send ACK even if port "+str(port)+" is disabled")
+                                txQueueAdd(protocol, frameAddr,CMD_SET,2,CMD_ACK,port,[arg1],1,1)
+
                         else:
                             d=Devices[unit]
                             #got a frame from a well known device
@@ -928,6 +945,33 @@ def decode(Devices):
                                     else: #normal switch
                                         if (d.nValue!=int(arg1) or d.sValue!=stringval):
                                             d.Update(nValue=int(arg1), sValue=stringval)
+                                elif (d.Type==243):
+                                    if (d.SubType==28): #Incremental counter
+                                        if (arg1>0):
+                                            d.Update(nValue=0, sValue=str(arg1));
+                                    elif (d.SubType==29): #kWh
+                                        if (arg1>0):
+                                            sv=d.sValue.split(';')  #sv[0]=POWER, sv[1]=COUNTER
+                                            if (len(sv)!=2): 
+                                                sv[0]="0" #power
+                                                sv.append("0") #counter
+                                            p=int(float(sv[0]))
+                                            energy=int(float(sv[1]))+arg1
+                                            ms=int(time.time()*1000)
+                                            # check that counterTime[d.Unit] exists: used to set the last time a pulse was received. 
+                                            # Althought it's possible to save data into d.Options, it's much better to have a dict so it's possible to periodically check all counterTime
+                                            if (d.Unit not in counterTime):
+                                                counterTime[d.Unit]=0
+                                            msdiff=ms-counterTime[d.Unit] #elapsed time since last value
+                                            if (msdiff>=2000): #check that frames do not come too fast (Domoticz was busy with database backup??)
+                                                power=int(arg1*3600000/msdiff)
+                                            else:
+                                                #frame received close to the previous one => ignore power computation
+                                                power=p    
+                                            counterTime[d.Unit]=ms
+                                            svalue=str(power)+';'+str(energy)
+                                            #Log(LOG_DEBUG,"sValue="+svalue)
+                                            d.Update(nValue=0, sValue=svalue)
                                 else:
                                     #device is not a switch, or has not the SwitchType attribute
                                     Log(LOG_DEBUG,"Ignore SET command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
@@ -984,9 +1028,6 @@ def decode(Devices):
             Log(LOG_DEBUG,"Frame len error: skip this false PREAMBLE")
             if len(rxbuffer)<frameLen:
                 Log(LOG_DEBUG,"decode: rxbuffer="+str(len(rxbuffer))+" < frameLen="+str(frameLen))
-                if (frameLen<250):  #if frameLen is reasonable, wait for new data, else pass to the next PREAMBLE
-                    dump(1, rxbuffer,frameLen,"RXinc")
-                    return
         dump(1, rxbuffer,frameLen,"RXbad")
         rxbuffer.pop(0)
         Log(LOG_WARN,"Frame length error:"+str(frameLen)+" while len(rxbuffer)="+str(len(rxbuffer)))
@@ -1112,4 +1153,32 @@ def send(Devices, SerialConn):
             #Log(LOG_DEBUG,"send(): Transmit outputs Status for "+hex(olderFrameAddr))
             txOutputsStatus(Devices, olderFrameAddr)
     return
-
+def heartbeat(Devices):
+    #function called periodically
+    global portsDisabledWrite
+    #should I save portsDisabled dict on json file?
+    if (portsDisabledWrite>0):
+        portsDisabledWrite-=1
+        if (portsDisabledWrite==0):
+            portsDisabledWriteNow()
+    #check counters: if configured as kWh => update decrease power in case of timeout
+    delmodules=[]
+    for u in counterTime:
+        if (Devices[u].Type==243 and Devices[u].SubType==29): #kWh meter
+            ms=int(time.time()*1000)
+            msdiff=ms-counterTime[u] #elapsed time since last value
+            if (msdiff>6000): 
+                # start power decay only if more than 6s since last pulse (DomBus in counter mode transmits no more than 1 frame per 2s)
+                sv=Devices[u].sValue.split(';')
+                p=int(float(sv[0]))
+                if (p>0):
+                    pc=int(3600000/msdiff)
+                    if (pc<p): #power was reduced
+                        sv=str(pc)+";"+sv[1]
+                        Devices[u].Update(nValue=0, sValue=sv)
+        else:
+            # this unit is not configured as a power meter => no need to compute power
+            delmodules.append(u)
+    for u in delmodules:
+        del counterTime[u]
+    return    

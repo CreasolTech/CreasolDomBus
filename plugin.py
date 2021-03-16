@@ -3,7 +3,7 @@
 # Author: creasol https://creasol.it
 #
 """
-<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.0.0" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://creasol.it/domotics">
+<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.0.1" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://creasol.it/domotics">
     <description>
         <h2>Creasol DomBus plugin</h2><br/>
         RS485 bus protocol used to connect Domoticz controller (Raspberry PI, Linux, Windows, ...) to one or more Creasol DomBus* modules.<br/>
@@ -140,11 +140,7 @@ class BasePlugin:
         #timestamp = str(int(time.time()))
         #Domoticz.Log("Heartbeat " + timestamp)
         dombus.send(Devices, SerialConn) #send frame, if any, or check if the status of a device should be transmitted (periodically transmit outputs status for every device)
-        #should I save portsDisabled dict on json file?
-        if (dombus.portsDisabledWrite>0):
-            dombus.portsDisabledWrite-=1
-            if (dombus.portsDisabledWrite==0):
-                dombus.portsDisabledWriteNow()
+        dombus.heartbeat(Devices)
         return
     def onDeviceModified(self, Unit): #called when device is modified by the domoticz frontend (e.g. when description or name was changed by the user)
         Domoticz.Debug("Device description="+Devices[Unit].Description)
@@ -155,7 +151,7 @@ class BasePlugin:
         port=int("0x"+deviceID[7:11],0)
         dombus.getDeviceID(frameAddr, port) #used to set devID variable
         Domoticz.Debug("DeviceID="+deviceID+" hwaddr="+str(hwaddr)+" frameAddr="+str(hex(frameAddr))+" port="+str(port))
-        opts=Devices[Unit].Description.upper().split(',')
+        opts=Devices[Unit].Description.split(',')
         dombus.parseTypeOpt(Devices, Unit, opts, frameAddr, port)
         dombus.send(Devices, SerialConn)
         return True
