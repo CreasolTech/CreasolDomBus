@@ -22,7 +22,9 @@ In this folder you can find the python plugin for Domoticz: you can install it b
 
 #install git, if not already installed
 
-if [ ! `which git` ]; then sudo apt install git; fi
+which git
+
+if [ $? -ne 0 ]; then sudo apt install git; fi
 
 #change to the domoticz directory / plugins
 
