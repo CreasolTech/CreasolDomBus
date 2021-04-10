@@ -51,7 +51,7 @@ CMD_MASK=0xf0
 CMD_ACK=0x08
 
 TX_RETRY=10                     #max number of retries
-TX_RETRY_TIME=50                # retry every TX_RETRY_TIME milliseconds
+TX_RETRY_TIME=80                # ms: retry every TX_RETRY_TIME * 2^retry
 PERIODIC_STATUS_INTERVAL=300    #seconds: refresh output status to device every 5 minutes
 MODULE_ALIVE_TIME=900           #if no frame is received in this time, module is considered dead (and periodic output status will not be transmitted)
 
@@ -87,7 +87,7 @@ PORTOPT_INVERTED=0x0001         #Logical inverted: MUST BE 1
 
 PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_IN_COUNTER:243, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244, PORTTYPE_OUT_ANALOG:244}
 
-PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_IN_COUNTER:"Counter Incremental", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer",}
+PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_IN_COUNTER:"Counter Incremental", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_ANALOG:"Dimmer",}
 
 PORTTYPES={
         "DISABLED":0x0000,          # port not used
@@ -145,7 +145,12 @@ DCMD_IN_EVENTS={
         "PULSE4":   6,      #4s pulse
         "DIMMER":   7,      #Dimming control
         "VALUE":    8,      #value (sensor, voltage, ...)
-        "MAX":      9,      #max number of events
+        "ONUP":     9,      #Twinbutton UP
+        "PULSEUP":  10,
+        "PULSEUP1": 11,
+        "PULSEUP2": 12,
+        "PULSEUP4": 13,
+        "MAX":      14,      #max number of events
         }
 
 DCMD_OUT_CMDS={
@@ -154,8 +159,9 @@ DCMD_OUT_CMDS={
         "ON":       2,      #turn ON output
         "TOGGLE":   3,      #toggle output ON -> OFF -> ON -> ....
         "DIMMER":   4,      #set value
-        #TODO: BLIND, BLINDSTOP, BLINDOPEN, BLINDCLOSE
-        "MAX":      5,      #Max number of commands
+        "DOWN":     5,      #Blind DOWN
+        "UP":       6,      #Blind UP
+        "MAX":      7,      #Max number of commands
         }
 
 rxbuffer=bytearray()         #serial rx buffer
@@ -171,6 +177,7 @@ LASTSTATUS=2    # third field in modules[]
 LASTPROTOCOL=3  # forth field in modules[]
 LASTRETRY=4     # fifth field in modules[]: number of retries (used to compute the tx period)
 modules={}      # modules[frameAddr]=[lastRx, lastTx, lastSentStatus, protocol]
+modulesAskConfig=[] #Dict with list of modules that require a new request of configuration (send CMD_CONFIG to ask for their configuration)
 
 TXQ_CMD=0
 TXQ_CMDLEN=1
@@ -380,6 +387,7 @@ def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
     #cmdLen=length of data after command (port+args[])
     global txQueue
     sec=int(time.time())
+    ms=int(time.time()*1000)
     if protocol==0:
         # check if module already in modules[]
         if (frameAddr in modules):
@@ -402,13 +410,13 @@ def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
                 break
         if (found==0):
             txQueue[frameAddr].append([cmd,cmdLen,cmdAck,port,args,retries])
-#            Log(LOG_DEBUG,"txQueueAdd: frameAddr="+hex(frameAddr)+" cmd="+hex(cmd|cmdAck|cmdLen)+" port="+hex(port))
         #txQueueRetry: don't modify it... transmit when retry time expires (maybe now or soon)
     #check that modules[frameAddr] exists
+    #Log(LOG_DEBUG,"txQueueAdd: frameAddr="+hex(frameAddr)+" cmd="+hex(cmd|cmdAck|cmdLen)+" port="+hex(port))
     if (frameAddr not in modules):
         # add frameAddr in modules
-        #                   lastRx         lastTx   lastSentStatus => lastTx=0 => transmit now
-        modules[frameAddr]=[sec, 0, sec+3-PERIODIC_STATUS_INTERVAL, protocol, 0] #transmit output status in 3 seconds
+        #                   lastRx  lastTx  lastSentStatus => lastTx=0 => transmit now
+        modules[frameAddr]=[sec,    ms,     sec+3-PERIODIC_STATUS_INTERVAL, protocol, 0] #transmit output status in 3 seconds
     else:
         #frameAddr already in modules[]
         if (protocol!=0):
@@ -417,8 +425,8 @@ def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
             modules[frameAddr][LASTTX]=0 #transmit now
     return        
 
-def txQueueAskConfig(protocol, frameAddr):
-    txQueueAdd(protocol, frameAddr,CMD_CONFIG,1,0,0xff,[],TX_RETRY,1)    #port=0xff to ask full configuration 
+def txQueueAskConfig(frameAddr):
+    txQueueAdd(0, frameAddr,CMD_CONFIG,1,0,0xff,[],TX_RETRY,1)    #port=0xff to ask full configuration 
     return 
 
 def txQueueRemove(frameAddr,cmd,port):
@@ -511,7 +519,9 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     typeName=''
     setOptDefined=0
     setTypeDefined=0
+    setDisableDefined=0
     setOptNames=""
+    Options=Devices[Unit].Options
     #dombus command
 #    dcmd=[  # IN_EVENT,                 inValueL,   inValueH,   hwaddr, port,   outCmd,                 outValue
 #            [ DCMD_IN_EVENTS['NONE'],   0,          0,          0,      0,      DCMD_OUT_CMDS['NONE'],  0 ],
@@ -545,6 +555,12 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         elif optu[:9]=="TYPENAME=":
             typeName=opt[9:]
             setOptNames+=opt+","
+        elif optu[:9]=="OPPOSITE=": #Used with kWh meter to set power to 0 when the opposite counter received a pulse (if import power >0, export power must be 0, and vice versa)
+            if (Devices[Unit].Type==243 and Devices[Unit].SubType==29): #kWh
+                opposite=int(float(opt[9:]))
+                if (Devices[opposite].Type==243 and Devices[opposite].SubType==29): #opposite unit is a kWh meter
+                    Options['opposite']=str(opposite)
+                    setOptNames+=opt+","
         elif optu[:9]=="HWADDR=0X" and len(opt)==13:
             #set hardware address
             hwaddr=int(optu[7:],16)
@@ -555,7 +571,9 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             #syntax: ENABLE=1:2:3:4:5
             setOptNames+="DISABLE="
             portsDisabled[deviceAddr]=[]
-            portsDisabledWrite=6   #write portDisabled on a json file in 6*heartbeat_interval (6*10s)
+            portsDisabledWrite=3   #write portDisabled on a json file in 3*heartbeat_interval (3*10s)
+            setDisableDefined=1
+            modulesAskConfig.append(frameAddr)
 
             for ps in optu[8:].split(':'):
                 try:
@@ -578,7 +596,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
                         setOptNames+=str(p)+":"
             if (setOptNames[-1:]==':'):
                 setOptNames=setOptNames[:-1]    #remove trailing ':'
-            setOptNames+=','                    
+            setOptNames+=','                
         elif (optu[:6]=="DESCR=" or optu[:10]=="TIMECLOSE=" or optu[:9]=="TIMEOPEN="):
             setOptNames+=opt+","
         elif (optu[:5]=="DCMD("):
@@ -702,8 +720,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     if (setOptNames!=''):
         setOptNames=setOptNames[:-1]    #remove last comma ,
     Log(LOG_INFO,"Config device "+hex(frameAddr)+": type="+hex(setType)+" typeName="+typeName+" opts="+hex(setOpt))
-    txQueueAdd(0, frameAddr, CMD_CONFIG, 5, 0, port, [((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,1) #PORTTYPE_VERSION=1
-    txQueueAdd(0, frameAddr, CMD_CONFIG, 7, 0, port, [((setType>>24)&0xff), ((setType>>16)&0xff), ((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,1) #PORTTYPE_VERSION=2
+    txQueueAdd(0, frameAddr, CMD_CONFIG, 5, 0, port, [((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,0) #PORTTYPE_VERSION=1
+    txQueueAdd(0, frameAddr, CMD_CONFIG, 7, 0, port, [((setType>>24)&0xff), ((setType>>16)&0xff), ((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,0) #PORTTYPE_VERSION=2
     if (modules[frameAddr][LASTPROTOCOL]!=1):
         #Transmit Dombus CMD config
         dcmdnum=0
@@ -726,9 +744,12 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     descr='ID='+devID+','+setTypeName+','+setOptNames if (setTypeDefined==1) else setOptNames
     if (setTypeDefined): #type was defined in the description => change TypeName, if different
         if (typeName=="Selector Switch"):
-            Options = {"LevelActions": "||","LevelNames": "Off|Down|Up", "LevelOffHidden": "false","SelectorStyle": "0"}
-            Log(LOG_INFO,"TypeName="+str(typeName)+", nValue=0, sValue=\"Off\", Description="+str(descr))
-            Devices[Unit].Update(TypeName=typeName, nValue=0, sValue="Off", Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
+            Options["LevelNames"]="Off|Down|Up"
+            Options["LevelOffHidden"]="false"
+            Options["SelectorStyle"]="0"
+        if (len(Options)>0):
+            Log(LOG_INFO,"TypeName="+str(typeName)+", nValue="+str(Devices[Unit].nValue)+", sValue="+str(Devices[Unit].sValue)+", Description="+str(descr)+", Options="+str(Options))
+            Devices[Unit].Update(TypeName=typeName, nValue=Devices[Unit].nValue, sValue=Devices[Unit].sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
         else:
             Log(LOG_INFO,"TypeName="+str(typeName)+", nValue="+str(Devices[Unit].nValue)+", sValue="+str(Devices[Unit].sValue)+", Description="+str(descr))
             Devices[Unit].Update(TypeName=typeName, nValue=Devices[Unit].nValue, sValue=Devices[Unit].sValue, Description=str(descr))  # Update description (removing HWADDR=0x1234)
@@ -737,7 +758,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     if (setCal!=32768): #new calibration value
         if (setCal<0): 
             setCal+=65536
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_CALIBRATE, ((setCal>>8)&0xff), (setCal&0xff)], TX_RETRY, 1)
+        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_CALIBRATE, ((setCal>>8)&0xff), (setCal&0xff)], TX_RETRY, 0)
     if (setHwaddr!=0 and setHwaddr!=0xffff): #hwaddr not 0 
         # remove HWADDR=0X1234 option from the device description
         # send command to change hwaddr
@@ -774,7 +795,7 @@ def decode(Devices):
                     modules[frameAddr]=[int(time.time()),0,0,protocol,0]   #transmit now the output status
                     #ask for port configuration?
                     if rxbuffer[FRAME_HEADER]!=CMD_CONFIG:
-                        txQueueAskConfig(protocol, frameAddr) #ask for configuration only if the device is not already sending configuration
+                        txQueueAskConfig(frameAddr) #ask for configuration only if the device is not already sending configuration
                 #broadcast or txQueue exists or txQueue just created
                 frameError=0
             else:
@@ -802,7 +823,7 @@ def decode(Devices):
                     modules[frameAddr]=[int(time.time()),0,0,protocol,0]   #transmit now the output status
                     #ask for port configuration?
                     if rxbuffer[FRAME_HEADER2]!=CMD_CONFIG:
-                        txQueueAskConfig(protocol, frameAddr) #ask for configuration only if the device is not already sending configuration
+                        txQueueAskConfig(frameAddr) #ask for configuration only if the device is not already sending configuration
                 #broadcast or txQueue exists or txQueue just created
                 frameError=0               
             else:
@@ -908,13 +929,26 @@ def decode(Devices):
                                         if (frameAddr<=0xff00 or port==1):
                                             Devices[UnitFree].Update(nValue=0, sValue='', Description=descr, Used=1)  # Add description (cannot be added with Create method)
                             port+=1;
+                    elif (port==0xfe):  # Version
+                        if (cmdLen>=8):
+                            strVersion=rxbuffer[portIdx+1:portIdx+5].decode()
+                            strModule=rxbuffer[portIdx+5:portIdx+cmdLen-1].decode()
+                            Log(LOG_INFO,"Module "+str(strModule)+" Rev."+str(strVersion)+" Addr="+hex(frameAddr))
+                            if (frameAddr in modules):
+                                modules[frameAddr][LASTSTATUS]=0    #force transmit output status
+
                 #TODO elif (cmd==CMD_DCMD): #decode DCMD frame to get the STATUS word?
             else:
                 #cmdAck==0 => decode command from slave module
                 if (frameAddr!=0xffff and dstAddr==0):
                     #Receive command from a slave module
                     getDeviceID(frameAddr,port)
-                    if (cmd==CMD_SET):
+                    if (cmd==CMD_GET): 
+                        if (port==0): #port==0 => request from module to get status of all output!  NOT USED by any module, actually
+                            txQueueAdd(protocol, frameAddr,CMD_GET,1,CMD_ACK,port,[],1,1)   #tx ack
+                            if (frameAddr in modules):
+                                modules[frameAddr][LASTSTATUS]=0    #force transmit output status
+                    elif (cmd==CMD_SET):
                         #digital or analog input changed?
                         UnitFree=1
                         unit=getDeviceUnit(Devices,0)
@@ -922,7 +956,7 @@ def decode(Devices):
                             if ((deviceAddr not in portsDisabled or port not in portsDisabled[deviceAddr])):
                                 #got a frame from a unknown device, that is not disabled => ask for configuration
                                 #Log(LOG_DEBUG,"Device="+devID+" portsDisabled["+str(deviceAddr)+"]="+portsDisabled[deviceAddr]+" => Ask config")
-                                txQueueAskConfig(protocol,frameAddr)
+                                txQueueAskConfig(frameAddr)
                             else:
                                 # ports is disabled => send ACK anyway, to prevent useless retries
                                 #Log(LOG_DEBUG,"Send ACK even if port "+str(port)+" is disabled")
@@ -972,6 +1006,16 @@ def decode(Devices):
                                             svalue=str(power)+';'+str(energy)
                                             #Log(LOG_DEBUG,"sValue="+svalue)
                                             d.Update(nValue=0, sValue=svalue)
+                                            if ('opposite' in d.Options):
+                                                #opposite = Unit of the opposite kWh counter, so if that counter exists, set it to 0 power
+                                                opposite=int(d.Options['opposite'])
+                                                if (opposite in Devices and Devices[opposite].Type==243 and Devices[opposite].SubType==29):
+                                                    #opposite device exists and it's a kWh counter
+                                                    sv=Devices[opposite].sValue.split(';')
+                                                    p=int(float(sv[0]))
+                                                    energy=int(float(sv[1]))+arg1
+                                                    if (p!=0):
+                                                        Devices[opposite].Update(nValue=0, sValue="0;"+str(energy))
                                 else:
                                     #device is not a switch, or has not the SwitchType attribute
                                     Log(LOG_DEBUG,"Ignore SET command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
@@ -1042,17 +1086,17 @@ def send(Devices, SerialConn):
     # scan all modules
     delmodules=[]
     #TODO: set protocol !!!!
-    for frameAddr,module in modules.items(): 
+    for frameAddr,module in modules.items():
         timeFromLastTx=ms-module[LASTTX]        #number of milliseconds since last TXed frame
         timeFromLastRx=sec-module[LASTRX]       #number of seconds since last RXed frame
         timeFromLastStatus=sec-module[LASTSTATUS]     #number of seconds since last TXed output status
         protocol=module[LASTPROTOCOL]           # 1=old protocol, 2=new protocol
-        #Log(LOG_DEBUG,"send(): frameAddr="+hex(frameAddr)+" protocol="+str(protocol)+" timeFromLastTx="+str(timeFromLastTx)+"ms timeFromLastRx="+str(timeFromLastRx)+"s lastStatus="+str(timeFromLastStatus)+"s")
         if (len(txQueue[frameAddr])>0):
             retry=module[LASTRETRY]                         #number of retris (0,1,2,3...): used to compute the retry period
             if (retry>TX_RETRY):
                 retry=TX_RETRY
-            if (timeFromLastTx>(TX_RETRY_TIME<<retry)):
+            if (timeFromLastTx>(TX_RETRY_TIME<<(retry+1))):
+                #Log(LOG_DEBUG,"send(): frameAddr="+hex(frameAddr)+" protocol="+str(protocol)+" timeFromLastTx="+str(timeFromLastTx)+"ms timeFromLastRx="+str(timeFromLastRx)+"s lastStatus="+str(timeFromLastStatus)+"s")
                 if (protocol==0 and retry>=TX_RETRY-5 and (retry&1)):
                     protocol=1  #protocol not defined: maybe it's a old device that does not transmit periodic status
                 #start txing
@@ -1155,12 +1199,17 @@ def send(Devices, SerialConn):
     return
 def heartbeat(Devices):
     #function called periodically
-    global portsDisabledWrite
+    global portsDisabledWrite, modulesAskConfig
     #should I save portsDisabled dict on json file?
     if (portsDisabledWrite>0):
         portsDisabledWrite-=1
         if (portsDisabledWrite==0):
-            portsDisabledWriteNow()
+            portsDisabledWriteNow() #Write json file with list of disabled ports
+            #ask configuration to enable ports that were previosly disabled and now are enabled again
+            for frameAddr in modulesAskConfig:
+                txQueueAskConfig(frameAddr)
+            modulesAskConfig=[]
+
     #check counters: if configured as kWh => update decrease power in case of timeout
     delmodules=[]
     for u in counterTime:

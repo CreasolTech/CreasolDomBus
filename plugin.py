@@ -3,7 +3,7 @@
 # Author: creasol https://creasol.it
 #
 """
-<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.0.1" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://creasol.it/domotics">
+<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.0.2" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://creasol.it/domotics">
     <description>
         <h2>Creasol DomBus plugin</h2><br/>
         RS485 bus protocol used to connect Domoticz controller (Raspberry PI, Linux, Windows, ...) to one or more Creasol DomBus* modules.<br/>
@@ -59,6 +59,7 @@ Protocol definition (in bytes):
 
 import Domoticz
 import time
+import re
 import CreasolDomBusProtocol as dombus
 serialConn=None
 
@@ -118,8 +119,9 @@ class BasePlugin:
         dombus.parseCommand(Devices,Unit,Command,Level,Hue,frameAddr,port)
         dombus.send(Devices, SerialConn)
         #Domoticz.Debug("SwitchType=="+str(Devices[Unit].SwitchType))
-        if (Devices[Unit].SwitchType==7):
-            nv=1 if Level>=5 else 0
+        if (Devices[Unit].SwitchType==7):   #Dimmer
+            minLevel=1 if (re.search('OUT_ANALOG',Devices[Unit].Description)) else 5
+            nv=1 if Level>=minLevel else 0
             if (Command=='Off'):
                 Devices[Unit].Update(nValue=0, sValue=str(Level))
             else:

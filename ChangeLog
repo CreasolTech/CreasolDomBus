@@ -4,6 +4,15 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
+1.0.2 2021-03-29
+Added information about the module name and firmware version for each new
+module powered-on (firmware 02b0 or above)
+
+When a port was enabled (DISABLE=2:3:4:5) and now it gets enabled again
+(DISABLE=3:4:5), after 60s a new configuration request is issued and port 2
+(in this example) will be enabled again, and available in the
+Switches/Temperature/Utility/Weather panel.
+
 1.0.1 2021-03-16
 New logging function Log(level,msg) to send on log only the required messages
 (log verbosity set by Hardware parameter)
