@@ -395,7 +395,7 @@ def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
     if len(txQueue)==0 or frameAddr not in txQueue:
         #create txQueue[frameAddr]
         txQueue[frameAddr]=[[cmd, cmdLen, cmdAck, port, args, retries]]
-#        Log(LOG_DEBUG,"txQueueAdd (frameAddr do not exist) frameAddr="+hex(frameAddr)+" cmd="+hex(cmd|cmdAck|cmdLen)+" port="+hex(port))
+#        Log(LOG_DEBUG,"txQueueAdd (frameAddr does not exist) frameAddr="+hex(frameAddr)+" cmd="+hex(cmd|cmdAck|cmdLen)+" port="+hex(port))
     else:
         found=0
         for f in txQueue[frameAddr]:
@@ -974,7 +974,7 @@ def decode(Devices):
                                         d.Update(nValue=int(arg1), sValue=str(arg1))
                                         #Log(LOG_DEBUG,"devID="+devID+" d.SwitchType="+str(d.SwitchType)+" nValue="+str(arg1)+" sValue="+str(arg1))
                                     elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-                                        if (d.Level!=int(arg1)):
+                                        if (hasattr(d,'Level') and d.Level!=int(arg1)):
                                             d.Update(Level=int(arg1))
                                     else: #normal switch
                                         if (d.nValue!=int(arg1) or d.sValue!=stringval):
@@ -1108,7 +1108,7 @@ def send(Devices, SerialConn):
                     txbuffer.append(frameAddr&0xff)
                     txbuffer.append(0)
                     txbufferIndex=FRAME_HEADER
-                else: #protocol=2
+                else: #protocol=2 or protocol=0
                     txbuffer.append(PREAMBLE)
                     txbuffer.append(frameAddr>>8)       #dstAddr
                     txbuffer.append(frameAddr&0xff)
@@ -1155,7 +1155,7 @@ def send(Devices, SerialConn):
                 txbuffer.append(checksumValue)
                 txbufferIndex+=1
                 SerialConn.Send(txbuffer)
-                if (logLevel>=LOG_DUMPALL or (logLevel>=LOG_DUMP and protocol==2)):
+                if (logLevel>=LOG_DUMPALL or (logLevel>=LOG_DUMP and protocol!=1)):
                     dump(protocol, txbuffer, txbufferIndex,"TX")
                 modules[frameAddr][LASTTX]=ms
 
