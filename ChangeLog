@@ -4,6 +4,9 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
+1.0.3 2021-07-22
+BugFix: now invalid frame with length field too small is correctly managed
+
 1.0.2 2021-03-29
 Added information about the module name and firmware version for each new
 module powered-on (firmware 02b0 or above)

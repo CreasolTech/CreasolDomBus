@@ -779,7 +779,9 @@ def decode(Devices):
         #protocol 1.0 (short version, without sender address)
         protocol=1
         frameLen=int(rxbuffer[FRAME_LEN])+FRAME_HEADER+1
-        if (frameLen>=FRAME_LEN_MIN and len(rxbuffer)>=frameLen ):
+        if frameLen < FRAME_LEN_MIN:
+            frameError=4    # Error, frame must be longer!
+        elif len(rxbuffer) >= frameLen:
             #length of frame is in the range
             # compute and compare checksum
             checksum(protocol, rxbuffer)
@@ -807,7 +809,9 @@ def decode(Devices):
         #protocol 2
         protocol=2
         frameLen=int(rxbuffer[FRAME_LEN2])+FRAME_HEADER2+1
-        if (frameLen>=FRAME_LEN_MIN2 and len(rxbuffer)>=frameLen ):
+        if frameLen<FRAME_LEN_MIN2:
+            frameError=4    # Error, frame must be longer!
+        elif len(rxbuffer)>=frameLen:
             #length of frame is in the range
             # compute and compare checksum
             checksum(protocol, rxbuffer)
@@ -1072,6 +1076,9 @@ def decode(Devices):
             Log(LOG_DEBUG,"Frame len error: skip this false PREAMBLE")
             if len(rxbuffer)<frameLen:
                 Log(LOG_DEBUG,"decode: rxbuffer="+str(len(rxbuffer))+" < frameLen="+str(frameLen))
+        elif frameError == 4:
+            # Invalid frame: length field too small
+            rxbuffer.pop(0)
         dump(1, rxbuffer,frameLen,"RXbad")
         rxbuffer.pop(0)
         Log(LOG_WARN,"Frame length error:"+str(frameLen)+" while len(rxbuffer)="+str(len(rxbuffer)))
