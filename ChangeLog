@@ -4,6 +4,12 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
+1.0.4 2021-
+DIVIDER option for IN_COUNTER sensors type kWh: setting an input device as
+IN_COUNTER,TYPENAME=kWh,DIVIDER=2000 
+it's possible to get a energy meter with 2000 pulses/kWh.
+By default, 1000 pulses/kWh is used.
+
 1.0.3 2021-07-22
 BugFix: now invalid frame with length field too small is correctly managed
 
