@@ -1008,7 +1008,7 @@ def decode(Devices):
                                                 sv[0]="0" #power
                                                 sv.append("0") #counter
                                             p=int(float(sv[0]))
-                                            energy=int(float(sv[1]))+arg1*1000/divider  #total energy in Wh
+                                            energy=float(sv[1])+arg1*1000/divider  #total energy in Wh
                                             ms=int(time.time()*1000)
                                             # check that counterTime[d.Unit] exists: used to set the last time a pulse was received. 
                                             # Althought it's possible to save data into d.Options, it's much better to have a dict so it's possible to periodically check all counterTime
@@ -1031,7 +1031,7 @@ def decode(Devices):
                                                     #opposite device exists and it's a kWh counter
                                                     sv=Devices[opposite].sValue.split(';')
                                                     p=int(float(sv[0]))
-                                                    energy=int(float(sv[1]))
+                                                    energy=float(sv[1])
                                                     if (p!=0):
                                                         Devices[opposite].Update(nValue=0, sValue="0;"+str(energy))
                                 else:
@@ -1082,7 +1082,7 @@ def decode(Devices):
                                     #compare counterOld with value2 
                                     if d.Unit not in counterOld or counterOld[d.Unit]==0 or counterOld[d.Unit]<value2 or counterOld[d.Unit]>value:
                                         counterOld[d.Unit]=value
-                                        Log(LOG_DEBUG,"kWh meter: counterOld NOT in sync! value="+str(value)+", value2="+str(value2)+", counterOld="+str(counter)+", power="+str(power))
+                                        Log(LOG_DEBUG,"kWh meter: counterOld NOT in sync! counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
                                     elif counterOld[d.Unit]>=value2 and counterOld[d.Unit]<value:
                                         # counterOld=1000, NEW=1020, OLD=970  (DB did not receive last ACK and did not update the OLD counter)
                                         # or counterOld=100, NEW=20, OLD=0 (DomBus resetted)
@@ -1090,7 +1090,7 @@ def decode(Devices):
                                             counter=value-counterOld[d.Unit]
                                             power=counter
                                         counterOld[d.Unit]=value
-                                        Log(LOG_DEBUG,"kWh meter: counter in sync => value="+str(value)+", value2="+str(value2)+", counterOld="+str(counter)+", power="+str(power))
+                                        Log(LOG_DEBUG,"kWh meter: counter in sync => counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
                                     if (d.SubType==28): #Incremental counter
                                         if (counter>0):
                                             d.Update(nValue=0, sValue=str(counter));
@@ -1106,7 +1106,7 @@ def decode(Devices):
                                                 sv[0]="0" #power
                                                 sv.append("0") #counter
                                             p=int(float(sv[0]))
-                                            energy=int(float(sv[1]))+counter*1000/divider  #total energy in Wh
+                                            energy=float(sv[1])+counter*1000/divider  #total energy in Wh
                                             ms=int(time.time()*1000)
                                             # check that counterTime[d.Unit] exists: used to set the last time a pulse was received. 
                                             # Althought it's possible to save data into d.Options, it's much better to have a dict so it's possible to periodically check all counterTime
@@ -1129,7 +1129,7 @@ def decode(Devices):
                                                     #opposite device exists and it's a kWh counter
                                                     sv=Devices[opposite].sValue.split(';')
                                                     p=int(float(sv[0]))
-                                                    energy=int(float(sv[1]))
+                                                    energy=float(sv[1])
                                                     if (p!=0):
                                                         Devices[opposite].Update(nValue=0, sValue="0;"+str(energy))
                                 txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
