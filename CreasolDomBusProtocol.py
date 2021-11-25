@@ -1004,7 +1004,7 @@ def decode(Devices):
                                                 divider=int(float(d.Options['divider']))
                                                 if (divider==0): 
                                                     divider=1000
-                                            if (len(sv)!=2 or not isinstance(sv[0], float)): 
+                                            if (len(sv)!=2): 
                                                 sv[0]="0" #power
                                                 sv.append("0") #counter
                                             p=int(float(sv[0]))
@@ -1022,7 +1022,7 @@ def decode(Devices):
                                                 power=p    
                                             counterTime[d.Unit]=ms
                                             svalue=str(power)+';'+str(energy)
-                                            Log(LOG_DEBUG,"kWh meter: count="+str(arg1)+" sValue="+svalue+" Name="+d.Name)
+                                            #Log(LOG_DEBUG,"kWh meter: count="+str(arg1)+" sValue="+svalue+" Name="+d.Name)
                                             d.Update(nValue=0, sValue=svalue)
                                             if ('opposite' in d.Options):
                                                 #opposite = Unit of the opposite kWh counter, so if that counter exists, set it to 0 power
@@ -1076,62 +1076,71 @@ def decode(Devices):
                                         d.Update(nValue=int(temp), sValue=stringval)
                                     txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
                                 elif (d.Type==243):
+                                    power=0 #default: set power=0
                                     #counter: value=newcountvalue, value2=oldcountvalue, arg5=0
                                     counter=value-value2
-                                    power=0 #default: set power=0
-                                    #compare counterOld with value2 
-                                    if d.Unit not in counterOld or counterOld[d.Unit]==0 or counterOld[d.Unit]<value2 or counterOld[d.Unit]>value:
-                                        counterOld[d.Unit]=value
-                                        Log(LOG_DEBUG,"kWh meter: counterOld NOT in sync! counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
-                                    elif counterOld[d.Unit]>=value2 and counterOld[d.Unit]<value:
-                                        # counterOld=1000, NEW=1020, OLD=970  (DB did not receive last ACK and did not update the OLD counter)
-                                        # or counterOld=100, NEW=20, OLD=0 (DomBus resetted)
-                                        if value2!=0:
-                                            counter=value-counterOld[d.Unit]
-                                            power=counter
-                                        counterOld[d.Unit]=value
-                                        Log(LOG_DEBUG,"kWh meter: counter in sync => counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
+                                    if (counter<0): #16bit overflow
+                                        counter+=65536;
+                                    if d.Unit not in counterOld:
+                                        counterOld[d.Unit]=0
+                                    value_minus_old=value-counterOld[d.Unit]
+                                    if (value_minus_old<0):     #16bit overflow
+                                        value_minus_old+=65536
+                                    old_minus_value2=counterOld[d.Unit]-value2
+                                    if (old_minus_value2<0):     #16bit overflow
+                                        old_minus_value2+=65536
+
+                                    if d.Unit in counterOld and counterOld[d.Unit]!=0 and old_minus_value2<1000 and value2!=0:
+                                        counter=value_minus_old # value - counterOld[d.Unit] +65536 if overflow
+                                        power=counter
+                                        Log(LOG_DEBUG,"Counter: counter in sync =>  Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
+                                    else: 
+                                        Log(LOG_WARN,"Counter: counterOld NOT in sync! Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
+                                    counterOld[d.Unit]=value
                                     if (d.SubType==28): #Incremental counter
                                         if (counter>0):
                                             d.Update(nValue=0, sValue=str(counter));
                                     elif (d.SubType==29): #kWh
-                                        if (counter>0):
-                                            sv=d.sValue.split(';')  #sv[0]=POWER, sv[1]=COUNTER
-                                            divider=1000    # default divider value
-                                            if ("divider" in d.Options):
-                                                divider=int(float(d.Options['divider']))
-                                                if (divider==0): 
-                                                    divider=1000
-                                            if (len(sv)!=2 or not isinstance(sv[0], float)): 
-                                                sv[0]="0" #power
-                                                sv.append("0") #counter
-                                            p=int(float(sv[0]))
-                                            energy=float(sv[1])+counter*1000/divider  #total energy in Wh
-                                            ms=int(time.time()*1000)
-                                            # check that counterTime[d.Unit] exists: used to set the last time a pulse was received. 
-                                            # Althought it's possible to save data into d.Options, it's much better to have a dict so it's possible to periodically check all counterTime
-                                            if (d.Unit not in counterTime):
-                                                counterTime[d.Unit]=0
-                                            msdiff=ms-counterTime[d.Unit] #elapsed time since last value
-                                            if (msdiff>=4000): #check that frames do not come too fast (Domoticz was busy with database backup??). Dombus tx period >= 5000ms
-                                                power=int(power*3600000000/(msdiff*divider))
-                                            else:
-                                                #frame received close to the previous one => ignore power computation
-                                                power=p
-                                            counterTime[d.Unit]=ms
-                                            svalue=str(power)+';'+str(energy)
-                                            Log(LOG_DEBUG,"kWh meter: count="+str(counter)+" sValue="+svalue+" Name="+d.Name)
-                                            d.Update(nValue=0, sValue=svalue)
-                                            if ('opposite' in d.Options):
-                                                #opposite = Unit of the opposite kWh counter, so if that counter exists, set it to 0 power
-                                                opposite=int(d.Options['opposite'])
-                                                if (opposite in Devices and Devices[opposite].Type==243 and Devices[opposite].SubType==29):
-                                                    #opposite device exists and it's a kWh counter
-                                                    sv=Devices[opposite].sValue.split(';')
-                                                    p=int(float(sv[0]))
-                                                    energy=float(sv[1])
-                                                    if (p!=0):
-                                                        Devices[opposite].Update(nValue=0, sValue="0;"+str(energy))
+###                                        if (counter>0):
+                                        sv=d.sValue.split(';')  #sv[0]=POWER, sv[1]=COUNTER
+                                        divider=1000    # default divider value
+                                        if ("divider" in d.Options):
+                                            divider=int(float(d.Options['divider']))
+                                            if (divider==0): 
+                                                divider=1000
+                                        if (len(sv)!=2): 
+                                            Log(LOG_INFO,"Counter kWh: sValue has not 2 items: Name="+d.Name+" sValue="+str(d.sValue)+" len(sv)="+str(len(sv)))
+                                            sv[0]="0" #power
+                                            sv.append("0") #counter
+                                        p=int(float(sv[0]))
+                                        energy=float(sv[1])+counter*1000/divider  #total energy in Wh
+                                        ms=int(time.time()*1000)
+                                        # check that counterTime[d.Unit] exists: used to set the last time a pulse was received. 
+                                        # Althought it's possible to save data into d.Options, it's much better to have a dict so it's possible to periodically check all counterTime
+                                        if (d.Unit not in counterTime):
+                                            counterTime[d.Unit]=0
+                                        msdiff=ms-counterTime[d.Unit] #elapsed time since last value
+                                        if (msdiff>=4000): #check that frames do not come too fast (Domoticz was busy with database backup??). Dombus tx period >= 5000ms
+                                            power=int(power*3600000000/(msdiff*divider))
+                                        else:
+                                            #frame received close to the previous one => ignore power computation
+                                            power=p
+                                        if (energy-float(sv[1])) > 8:
+                                            Log(LOG_WARN,"Counter kWh: > 8Wh increment!!!  Name="+d.Name+" sValueOld="+d.sValue+" sv[0]="+str(sv[0])+" sv[1]="+str(sv[1])+" counter="+str(counter)+" divider="+str(divider)+" energyNow="+str(energy)+" msdiff="+str(msdiff))
+                                        counterTime[d.Unit]=ms
+                                        svalue=str(power)+';'+str(energy)
+                                        Log(LOG_DEBUG,"Counter kWh:  Name="+d.Name+" count="+str(counter)+" sValue="+svalue+" Name="+d.Name)
+                                        d.Update(nValue=0, sValue=svalue)
+                                        if ('opposite' in d.Options):
+                                            #opposite = Unit of the opposite kWh counter, so if that counter exists, set it to 0 power
+                                            opposite=int(d.Options['opposite'])
+                                            if (opposite in Devices and Devices[opposite].Type==243 and Devices[opposite].SubType==29):
+                                                #opposite device exists and it's a kWh counter
+                                                sv=Devices[opposite].sValue.split(';')
+                                                p=int(float(sv[0]))
+                                                energy=float(sv[1])
+                                                if (p!=0):
+                                                    Devices[opposite].Update(nValue=0, sValue="0;"+str(energy))
                                 txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
 
             frameIdx=frameIdx+cmdLen+1

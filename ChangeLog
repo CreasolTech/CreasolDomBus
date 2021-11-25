@@ -4,7 +4,12 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
-1.0.4 2021-
+1.0.5 2021-11-25
+Manage the new version of DomBus that, in counter mode, send two 16bit
+values: old absolute counter (confirmed by the domotic controller) and new absolute
+counter value.
+
+1.0.4 2021-10-25
 DIVIDER option for IN_COUNTER sensors type kWh: setting an input device as
 IN_COUNTER,TYPENAME=kWh,DIVIDER=2000 
 it's possible to get a energy meter with 2000 pulses/kWh.
