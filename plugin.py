@@ -109,7 +109,7 @@ class BasePlugin:
         dombus.send(Devices, SerialConn)
         return
     def onCommand(self, Unit, Command, Level, Hue):
-        Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Command:'" + str(Command) + "', Level:" + str(Level)+", Hue:"+str(Hue))
+        #Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Command:'" + str(Command) + "', Level:" + str(Level)+", Hue:"+str(Hue))
         newstate=0 if Command=="Off" else 1
         #send command to the module
         deviceID=Devices[Unit].DeviceID

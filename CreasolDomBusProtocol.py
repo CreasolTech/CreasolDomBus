@@ -81,13 +81,16 @@ PORTTYPE_SENSOR_HUM=0x8000      #Relative Humidity
 PORTTYPE_SENSOR_TEMP_HUM=0xc000 #Temp+Hum
 PORTTYPE_OUT_BLIND=0x01000000   #Blind output, close command (next port of DomBus device will be automatically used as Blind output, open command)
 PORTTYPE_OUT_ANALOG=0x02000000  #0-10V output, 1% step, 0-100
+PORTTYPE_CUSTOM=0x80000000      #custom port with only 1 function
 
 PORTOPT_NONE=0x0000             #No options
 PORTOPT_INVERTED=0x0001         #Logical inverted: MUST BE 1
+PORTOPT_SELECTOR=0x0002           #Custom port configured as a selection switch to show/set different values
+PORTOPT_DIMMER=0x0004           #Dimmer slide
 
 PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_IN_COUNTER:243, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244, PORTTYPE_OUT_ANALOG:244}
 
-PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_IN_COUNTER:"Counter Incremental", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_ANALOG:"Dimmer",}
+PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_IN_COUNTER:"Counter Incremental", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_ANALOG:"Dimmer", PORTTYPE_CUSTOM:"Dimmer"}
 
 PORTTYPES={
         "DISABLED":0x0000,          # port not used
@@ -107,11 +110,14 @@ PORTTYPES={
         "TEMP+HUM":0xc000,          # temp+hum
         "OUT_BLIND":0x01000000,     # blind with up/down/stop command
         "OUT_ANALOG":0x02000000,    # 0-10V output, 0-100, 1% step
+        "CUSTOM":0x80000000,        # Custom port (enabled only if PORTOPT is specified)
         }
 
 PORTOPTS={
-        "NORMAL":0x0000,          # no options defined
-        "INVERTED":0x0001,      # input or output is inverted (logic 1 means the corresponding GPIO is at GND
+        "NORMAL":0x0000,            # no options defined
+        "INVERTED":0x0001,          # input or output is inverted (logic 1 means the corresponding GPIO is at GND
+        "SELECTOR":0x0002,            # Selection switch
+        "DIMMER":0x0004,            # Dimmer
         }
 
 PORTTYPENAME={  #Used to set the device TypeName
@@ -133,6 +139,7 @@ PORTTYPENAME={  #Used to set the device TypeName
 #        "OUT_BLIND":"Venetian Blinds EU", #not available in domoticz yet. hardware/plugins/PythonObjects.cpp must be updated!
         "OUT_BLIND":"Switch",
         "OUT_ANALOG":"Dimmer",
+        "CUSTOM":"Switch",
         }
 
 DCMD_IN_EVENTS={
@@ -456,7 +463,7 @@ def txOutputsStatus(Devices,frameAddr):
                 # output! get the port and output state
                 port=int("0x"+d.DeviceID[7:11],0)
                 if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-                    if (re.search("OUT_ANALOG",d.Description)):
+                    if (re.search("OUT_ANALOG|CUSTOM.SELECTOR",d.Description)):
                         level=int(d.sValue) if d.nValue==1 else 0 #1% step
                     else:
                         level=int(int(d.sValue)/5) if d.nValue==1 else 0    #soft dimmer => 5% step
@@ -480,7 +487,7 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
             if (Command=='Off'):
                 txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[0],TX_RETRY,1) #Level: from 0 to 20 = 100%
             else:
-                if (re.search('OUT_ANALOG',d.Description)):
+                if (re.search('OUT_ANALOG|CUSTOM.DIMMER',d.Description)):
                     txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[int(Level)],TX_RETRY,1) #Level: from 0 to 100 = 100% (1% step)
                 else:
                     txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[int(Level/5)],TX_RETRY,1) #Level: from 0 to 20 = 100% (5% step)
@@ -931,16 +938,45 @@ def decode(Devices):
                                                 descr+=key+","
                                                 break
                                         for key,value in PORTOPTS.items():
-                                            if (value&portOpt):
+                                            if (value==portOpt):
                                                 #descr=descr+key+","
                                                 descr+=key+","
                                         if (descr!=''):
                                             descr=descr[:-1]    #remove last comma ,
-                                        Log(LOG_INFO,"Add device "+deviceID+" deviceAddr="+deviceAddr+": "+portName+" Type="+str(portType)+" Opt="+str(portOpt)+" Description="+descr)
-                                        Log(LOG_INFO,"Name=["+devID+"] "+portName+", TypeName="+PORT_TYPENAME[portType]+", DeviceID="+deviceID+", Unit="+str(UnitFree))
-                                        Domoticz.Device(Name="["+devID+"] "+portName, TypeName=PORT_TYPENAME[portType], DeviceID=deviceID, Unit=UnitFree).Create()
+
+                                        if (portType!=PORTTYPE_CUSTOM or portOpt>=2):
+                                            # do not enable CUSTOM device with PORTOPT not specified (ignore it!)
+                                            typeName=PORT_TYPENAME[portType]
+                                            Options={}
+                                            if (portType==PORTTYPE_CUSTOM):
+                                                if (portOpt==PORTOPT_SELECTOR):
+                                                    typeName="Selector Switch"
+                                                if (portName=="EVSE_state"):
+                                                    # create two sliders, one for min and one for max SoC
+                                                    Domoticz.Device(Name="EVSE_batteryMin", TypeName="Dimmer", Unit=UnitFree, Description="Battery level under which the EV is charged using energy from the grid. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
+                                                    Devices[UnitFree].Update(nValue=1, sValue="50", Used=1, Name="EVSE_batteryMin")
+                                                    unit=getDeviceUnit(Devices,1) # find another free Unit to create EVSE_batteryMax virtual device
+                                                    if (UnitFree!=0xffff):
+                                                        Domoticz.Device(Name="EVSE_batteryMax", TypeName="Dimmer", Unit=UnitFree, Description="When battery level is between min and max, only energy from reneable will be used. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
+                                                        Devices[UnitFree].Update(nValue=1, sValue="80", Used=1, Name="EVSE_batteryMax")
+                                                    unit=getDeviceUnit(Devices,1)   # find another free Unit to create EVSE_currentMax virtual device
+                                                    if (UnitFree!=0xffff):
+                                                        Options["LevelNames"]="8|12|16|20|24|28|32"
+                                                        Domoticz.Device(Name="EVSE_currentMax", TypeName="Selector Switch", Unit=UnitFree, Description="Maximum charging current. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
+                                                        Devices[UnitFree].Update(nValue=1, sValue="80", Used=1)
+                                                    unit=getDeviceUnit(Devices,1)
+                                                    #ToDo: if UnitFree>255 => no space in Devices[] table for a new device
+                                                    Options["LevelNames"]="0|Dis|Con|Ch|Vent|AEV|APO|AW"
+                                            elif (portOpt==PORTOPT_DIMMER):
+                                                typeName="Dimmer"
+                                                if (portName=="EVSE_current"):
+                                                    Options["MaxDimLevel"]="32"    #Max 32A : not implemented in python plugin
+
+                                        Log(LOG_INFO,"Add device "+deviceID+" deviceAddr="+deviceAddr+": "+portName+" portType="+hex(portType)+" portOpt="+str(portOpt)+" Description="+descr)
+                                        Log(LOG_INFO,"Name=["+devID+"] "+portName+", TypeName="+typeName+", DeviceID="+deviceID+", Unit="+str(UnitFree)+" ,Options="+str(Options))
+                                        Domoticz.Device(Name="["+devID+"] "+portName, TypeName=typeName, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
                                         if (frameAddr<=0xff00 or port==1):
-                                            Devices[UnitFree].Update(nValue=0, sValue='', Description=descr, Used=1)  # Add description (cannot be added with Create method)
+                                            Devices[UnitFree].Update(nValue=0, sValue='', Used=1)  # Add description (cannot be added with Create method)
                             port+=1;
                     elif (port==0xfe):  # Version
                         if (cmdLen>=8):
@@ -982,13 +1018,13 @@ def decode(Devices):
                             if (cmdLen==2):
                                 stringval='Off' if arg1==0 else 'On'
                                 #update device only if was changed
+                                #Log(LOG_DEBUG,"devID="+devID+" d.Type="+str(d.Type)+" d.SwitchType="+str(d.SwitchType)+" nValue="+str(arg1)+" sValue="+str(arg1))
                                 if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
                                     if (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
                                         d.Update(nValue=int(arg1), sValue=str(arg1))
-                                        #Log(LOG_DEBUG,"devID="+devID+" d.SwitchType="+str(d.SwitchType)+" nValue="+str(arg1)+" sValue="+str(arg1))
                                     elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-                                        if (hasattr(d,'Level') and d.Level!=int(arg1)):
-                                            d.Update(Level=int(arg1))
+                                        nValue=0 if arg1==0 else 1
+                                        d.Update(nValue=nValue, sValue=str(arg1))
                                     else: #normal switch
                                         if (d.nValue!=int(arg1) or d.sValue!=stringval):
                                             d.Update(nValue=int(arg1), sValue=stringval)
@@ -997,7 +1033,10 @@ def decode(Devices):
                                         if (arg1>0):
                                             d.Update(nValue=0, sValue=str(arg1));
                                     elif (d.SubType==29): #kWh
-                                        if (arg1>0):
+                                        if (arg1==0):
+                                            # just update the current value, to avoid bad diagrams
+                                            d.Update(nValue=d.nValue, sValue=d.svalue)
+                                        else:
                                             sv=d.sValue.split(';')  #sv[0]=POWER, sv[1]=COUNTER
                                             divider=1000    # default divider value
                                             if ("divider" in d.Options):
@@ -1022,7 +1061,7 @@ def decode(Devices):
                                                 power=p    
                                             counterTime[d.Unit]=ms
                                             svalue=str(power)+';'+str(energy)
-                                            #Log(LOG_DEBUG,"kWh meter: count="+str(arg1)+" sValue="+svalue+" Name="+d.Name)
+                                            Log(LOG_INFO,"kWh meter: count="+str(arg1)+" sValue="+svalue+" Name="+d.Name)
                                             d.Update(nValue=0, sValue=svalue)
                                             if ('opposite' in d.Options):
                                                 #opposite = Unit of the opposite kWh counter, so if that counter exists, set it to 0 power
@@ -1125,8 +1164,8 @@ def decode(Devices):
                                         else:
                                             #frame received close to the previous one => ignore power computation
                                             power=p
-                                        if (energy-float(sv[1])) > 8:
-                                            Log(LOG_WARN,"Counter kWh: > 8Wh increment!!!  Name="+d.Name+" sValueOld="+d.sValue+" sv[0]="+str(sv[0])+" sv[1]="+str(sv[1])+" counter="+str(counter)+" divider="+str(divider)+" energyNow="+str(energy)+" msdiff="+str(msdiff))
+                                        if (energy-float(sv[1])) > 16:
+                                            Log(LOG_WARN,"Counter kWh: > 16Wh increment!!!  Name="+d.Name+" sValueOld="+d.sValue+" sv[0]="+str(sv[0])+" sv[1]="+str(sv[1])+" counter="+str(counter)+" divider="+str(divider)+" energyNow="+str(energy)+" msdiff="+str(msdiff))
                                         counterTime[d.Unit]=ms
                                         svalue=str(power)+';'+str(energy)
                                         Log(LOG_DEBUG,"Counter kWh:  Name="+d.Name+" count="+str(counter)+" sValue="+svalue+" Name="+d.Name)
@@ -1318,4 +1357,5 @@ def heartbeat(Devices):
             delmodules.append(u)
     for u in delmodules:
         del counterTime[u]
+
     return    
