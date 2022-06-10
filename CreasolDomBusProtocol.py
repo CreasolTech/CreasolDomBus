@@ -1132,7 +1132,7 @@ def decode(Devices):
                                     if d.Unit in counterOld and counterOld[d.Unit]!=0 and old_minus_value2<1000 and value2!=0:
                                         counter=value_minus_old # value - counterOld[d.Unit] +65536 if overflow
                                         power=counter
-                                        Log(LOG_DEBUG,"Counter: counter in sync =>  Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
+                                        # Log(LOG_DEBUG,"Counter: counter in sync =>  Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
                                     else: 
                                         Log(LOG_WARN,"Counter: counterOld NOT in sync! Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
                                     counterOld[d.Unit]=value
@@ -1168,7 +1168,7 @@ def decode(Devices):
                                             Log(LOG_WARN,"Counter kWh: > 16Wh increment!!!  Name="+d.Name+" sValueOld="+d.sValue+" sv[0]="+str(sv[0])+" sv[1]="+str(sv[1])+" counter="+str(counter)+" divider="+str(divider)+" energyNow="+str(energy)+" msdiff="+str(msdiff))
                                         counterTime[d.Unit]=ms
                                         svalue=str(power)+';'+str(energy)
-                                        Log(LOG_DEBUG,"Counter kWh:  Name="+d.Name+" count="+str(counter)+" sValue="+svalue+" Name="+d.Name)
+                                        # Log(LOG_DEBUG,"Counter kWh:  Name="+d.Name+" count="+str(counter)+" sValue="+svalue+" Name="+d.Name)
                                         d.Update(nValue=0, sValue=svalue)
                                         if ('opposite' in d.Options):
                                             #opposite = Unit of the opposite kWh counter, so if that counter exists, set it to 0 power
