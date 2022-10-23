@@ -4,19 +4,22 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
-1.0.5 2021-11-25
-Manage the new version of DomBus that, in counter mode, send two 16bit
-values: old absolute counter (confirmed by the domotic controller) and new absolute
-counter value.
+1.1.1 2022-10-11
+Naming was changed from "[devID] - Port Name" to "(devID) - Port Name"
 
-1.0.4 2021-10-25
-DIVIDER option for IN_COUNTER sensors type kWh: setting an input device as
-IN_COUNTER,TYPENAME=kWh,DIVIDER=2000 
-it's possible to get a energy meter with 2000 pulses/kWh.
-By default, 1000 pulses/kWh is used.
+1.1.0 2022-09-29
+Added support for the new version of DomBusEVSE (charging station for electric vehicles)
+Added support for MODBUS energy meters
+Improved communication: limited length of ACK frames (only port and
+	subcmd/arg1 in the payload); also, ACK are transmitted before CMD.
 
-1.0.3 2021-07-22
-BugFix: now invalid frame with length field too small is correctly managed
+1.0.5 2021-10-25
+Added another management for IN_COUNTER ports: now DomBus ports configured as
+IN_COUNTER transmit two 16bit variables:  counterNew and counterOld
+where counterOld is the last incremental counter confirmed by Domoticz (with
+ACK) and counterNew the current value of counter (counterOld + new_pulses).
+In this way counting is always correct, even if Domoticz is down for a short
+time.
 
 1.0.2 2021-03-29
 Added information about the module name and firmware version for each new
