@@ -4,6 +4,13 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
+1.1.2 2022-10-27
+Added support to NTC 10k 3950 temperature sensors: can be connected to 
+any inputs that can be used as IN_TWINBUTTON (with 10k internal pullup
+enabled); the device connected to the NTC thermistor should be configured in
+this way:  IN_ANALOG,FUNCTION=3950,B=0  where B is an offset that will be
+added to the temperature value to compensate a temperature error.
+
 1.1.1 2022-10-11
 Naming was changed from "[devID] - Port Name" to "(devID) - Port Name"
 

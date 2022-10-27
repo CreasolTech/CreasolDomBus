@@ -31,6 +31,7 @@ import time
 import struct
 import re
 import json
+import math
 
 #if 1, when a module does not transmit for more than 15 minutes (MODULE_ALIVE_TIME), it will appear in red (TimedOut)
 PROTOCOL1_WITH_PERIODIC_TX=0    # set to 1 if all existing modules transmit their status periodically (oldest modules with protocol 1 did not)
@@ -182,6 +183,7 @@ DCMD_OUT_CMDS={
         "UP":       6,      #Blind UP
         "MAX":      7,      #Max number of commands
         }
+
 
 rxbuffer=bytearray()         #serial rx buffer
 txbuffer=bytearray()         #serial tx buffer
@@ -587,6 +589,13 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             setOptNames+=opt+","
         elif optu[:2]=="B=":
             setOptNames+=opt+","
+        elif optu[:9]=="FUNCTION=":
+            # Used to convert an analog value to another
+            Options['function']=optu[9:]
+            setType=PORTTYPE[PORTTYPE_SENSOR_TEMP]
+            setTypeDefined=1
+            typeName="Temperature"
+            setOptNames+=opt+","
         elif optu[:4]=="CAL=":       # calibration value: should be expressed as integer (e.g. temperatureOffset*10)
             setCal=int(float(opt[4:])*10) 
         elif optu[:9]=="TYPENAME=":
@@ -893,7 +902,6 @@ def decode(Devices):
                     modules[frameAddr]=[int(time.time()),0,0,protocol,0]   #transmit now the output status
                     #ask for port configuration?
                     if rxbuffer[FRAME_HEADER]!=CMD_CONFIG:
-                        Log(LOG_DEBUG,"txQueueAskConfig(#1)")
                         txQueueAskConfig(protocol,frameAddr) #ask for configuration only if the device is not already sending configuration
                 #broadcast or txQueue exists or txQueue just created
                 frameError=0
@@ -924,7 +932,6 @@ def decode(Devices):
                     modules[frameAddr]=[int(time.time()),0,0,protocol,0]   #transmit now the output status
                     #ask for port configuration?
                     if rxbuffer[FRAME_HEADER2]!=CMD_CONFIG:
-                        Log(LOG_DEBUG,"txQueueAskConfig(#2)")
                         txQueueAskConfig(protocol,frameAddr) #ask for configuration only if the device is not already sending configuration
                 #broadcast or txQueue exists or txQueue just created
                 frameError=0               
@@ -1126,7 +1133,7 @@ def decode(Devices):
                                             Domoticz.Device(Name="("+devID+") "+portName, TypeName=typeName, Switchtype=Switchtype, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
                                         else:
                                             Domoticz.Device(Name="("+devID+") "+portName, TypeName=typeName, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
-                                        if frameAddr<=0xff00 or port==1 or frameAddr==0xffe3: #DEBUG: remove ffe3!
+                                        if frameAddr<=0xff00 or port==1:
                                             Used=1
                                         Devices[UnitFree].Update(nValue=nValue, sValue=sValue, Used=Used)   # do not enable devices with default address
                             port+=1;
@@ -1168,7 +1175,6 @@ def decode(Devices):
                             if ((deviceAddr not in portsDisabled or port not in portsDisabled[deviceAddr])):
                                 #got a frame from a unknown device, that is not disabled => ask for configuration
                                 #Log(LOG_DEBUG,"Device="+devID+" portsDisabled["+str(deviceAddr)+"]="+portsDisabled[deviceAddr]+" => Ask config")
-                                Log(LOG_DEBUG,"txQueueAskConfig(#3)")
                                 txQueueAskConfig(protocol,frameAddr)
                             else:
                                 # ports is disabled => send ACK anyway, to prevent useless retries
@@ -1247,11 +1253,28 @@ def decode(Devices):
                                 #analog value, distance, temperature or humidity
                                 value=arg1*256+arg2
                                 if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP]):
-                                    temp=round(value/10.0-273.1,1)
-                                    #Log(LOG_DEBUG,"Temperature: value="+str(value)+" temp="+str(temp)) 
-                                    stringval=str(float(temp))
+                                    if 'function' in d.Options:
+                                        Ro=10000
+                                        To=25.0
+                                        temp=0  #default
+                                        stringval="0"
+                                        if (d.Options['function']=='3950'):
+                                            #value=0..65535
+                                            beta=3950
+                                            if (value==65535): value=65534  #Avoid division by zero
+                                            r=value*Ro/(65535-value)
+                                            temp=math.log(r / Ro) / beta      # log(R/Ro) / beta
+                                            temp+=1.0/(To + 273.15)
+                                            temp=round((1.0/temp)-273.15, 1)
+                                    else:
+                                        temp=round(value/10.0-273.1,1)
+                                        #Log(LOG_DEBUG,"Temperature: value="+str(value)+" temp="+str(temp)) 
+                                    #Now manage A and B
+                                    v=getOpt(d,"B=")
+                                    b=float(v) if (v!="false") else 0
+                                    temp=temp+b
                                     if (temp>-50 and d.sValue!=stringval):
-                                        d.Update(nValue=int(temp), sValue=stringval)
+                                        d.Update(nValue=int(temp), sValue=str(temp))
                                 elif (d.Type==PORTTYPE[PORTTYPE_SENSOR_HUM]):
                                     hum=int(value/10)
                                     if (hum>5 and d.nValue!=hum):
@@ -1529,7 +1552,6 @@ def heartbeat(Devices):
             portsDisabledWriteNow() #Write json file with list of disabled ports
             #ask configuration to enable ports that were previosly disabled and now are enabled again
             for frameAddr in modulesAskConfig:
-                Log(LOG_DEBUG,"txQueueAskConfig(#4)")
                 txQueueAskConfig(0,frameAddr)
             modulesAskConfig=[]
 
