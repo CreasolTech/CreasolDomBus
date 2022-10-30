@@ -503,7 +503,7 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
     deviceID=d.DeviceID
     #add command in the queue
     if (not hasattr(d,'SwitchType')): 
-        Log(LOG_DEBUG,"Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+str(d.Name))
+        Log(LOG_DEBUG,f"Type={d.Type} SubType={d.SubType} Name={d.Name} Command={Command} Level={Level} Hue={Hue}")
     if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
         if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
             if (Command=='Off'):
@@ -535,6 +535,13 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
             txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[newstate],TX_RETRY,1) 
         else: #normal switch
             txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[newstate],TX_RETRY,1)
+    elif d.Type==243:
+        if d.SubType==29:  #kWh
+            #Transmit power value to DomBus, as signed16.  Command=5410;0  (power;energy)
+            power=int(float(Command.split(';')[0]))
+            if (power<0): power=65536+power;
+            txQueueAdd(0, frameAddr,CMD_SET,4,0,port,[(power>>8), (power&0x0ff), 0], 1, 1)
+            Log(LOG_DEBUG, f"Transmit Grid Power = {power} {power>>8} {power&0x0ff}")
     else:
         Log(LOG_DEBUG,"parseCommand: ignore command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
     return
@@ -1066,8 +1073,9 @@ def decode(Devices):
                                                     sValue="0;0"    #power,energy
                                                     if ("Solar" in portName or "Exp" in portName):
                                                         Switchtype=4   # Export energy
-                                                    if "EV Solar" in portName or "EV Grid" in portName:
-                                                        Options["EnergyMeterMode"]="1"
+                                                    if "EV Solar" in portName or "EV Grid" in portName or "Grid Power" in portName:
+                                                        Options["EnergyMeterMode"]="1"  #Energy computed by Domoticz
+                                                        Options["SignedWatt"]="1"       #Get 2 bytes signed data (16bit with MSB indicating the -)
                                                 elif (portOpt==PORTOPT_VOLTAGE):
                                                     typeName="Voltage"
                                                 elif (portOpt==PORTOPT_POWER_FACTOR):
@@ -1250,7 +1258,7 @@ def decode(Devices):
                                 #send ack
                                 txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
                             elif (cmdLen==3 or cmdLen==4):
-                                #analog value, distance, temperature or humidity
+                                #analog value, distance, temperature, humidity, watt
                                 value=arg1*256+arg2
                                 if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP]):
                                     if 'function' in d.Options:
@@ -1279,13 +1287,17 @@ def decode(Devices):
                                     hum=int(value/10)
                                     if (hum>5 and d.nValue!=hum):
                                         d.Update(nValue=hum, sValue=HRstatus(hum))
-                                elif (d.Type==243): #distance, voltage, frequency, power factor, ...
-                                    #extract A and B, if defined, to compute the right value VALUE=A*dombus_value+B
-                                    v=getOpt(d,"A=")
-                                    a=float(v) if (v!="false") else 1
-                                    v=getOpt(d,"B=")
-                                    b=float(v) if (v!="false") else 0
-                                    Value=a*value+b
+                                elif (d.Type==243): #distance, voltage, frequency, power factor, watt, ...
+                                    if (d.SubType==29): #kWh => signed power
+                                        Value=value
+                                        if (value&0x8000): Value=value-65536
+                                    else:
+                                        #extract A and B, if defined, to compute the right value VALUE=A*dombus_value+B
+                                        v=getOpt(d,"A=")
+                                        a=float(v) if (v!="false") else 1
+                                        v=getOpt(d,"B=")
+                                        b=float(v) if (v!="false") else 0
+                                        Value=a*value+b
                                     if (d.sValue!=str(Value)):
                                         d.Update(nValue=int(Value), sValue=str(Value))
                                     #Log(LOG_DEBUG,"Value="+str(a)+"*"+str(value)+"+"+str(b)+"="+str(Value))
@@ -1373,24 +1385,23 @@ def decode(Devices):
                                 #txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
                                 txQueueAdd(protocol, frameAddr,cmd,1,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
                             elif (cmdLen==7 or cmdLen==8):
-                                # transmitted 32bit value + 16bit value
-                                value=(arg1<<24) + (arg2<<16) + (arg3<<8) + arg4
-                                value2=(arg5<<8) + arg6
+                                # transmitted power (int16) + energy (uint32)
+                                value=(arg1<<8) + arg2
+                                value2=(arg3<<24) + (arg4<<16) + (arg5<<8) + arg6
                                 #kWh?
                                 if (d.Type==243 and d.SubType==29): #kWh
-                                    #value=N*10Wh
-                                    #value2=Watt, signed
-                                    if (value2&0x8000):
-                                        power=value2-65536
+                                    #value=Watt, signed
+                                    #value2=N*10Wh
+                                    if (value&0x8000):
+                                        power=value-65536
                                     else:
-                                        power=value2
-                                    energy=value*10
+                                        power=value
+                                    energy=value2*10
                                     stringval=str(power)+";"+str(energy) 
                                     if (d.sValue!=stringval):
                                         d.Update(nValue=power, sValue=stringval)
                                     #txQueueAdd(protocol, frameAddr,CMD_SET,7,CMD_ACK,port,[arg1,arg2,arg3,arg4,arg5,arg6,0],1,1)
                                     txQueueAdd(protocol, frameAddr,cmd,1,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
-                                    Log(LOG_DEBUG,f"kWh: value={value}, value2={value2}, power={power}, energy={energy}, stringval={stringval}, name={d.Name}")
             frameIdx=frameIdx+cmdLen+1
         #remove current frame from buffer
         for i in range(0,frameLen):

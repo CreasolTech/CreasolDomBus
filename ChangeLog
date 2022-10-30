@@ -4,6 +4,11 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
+1.1.3 2022-10-29
+DBEVSE: added the possibility to work without any energy meter connected to
+DBEVSE, but using a energy meter connected to the grid and a silly script that
+send the current power to the virtual device "Grid Power"
+
 1.1.2 2022-10-27
 Added support to NTC 10k 3950 temperature sensors: can be connected to 
 any inputs that can be used as IN_TWINBUTTON (with 10k internal pullup
