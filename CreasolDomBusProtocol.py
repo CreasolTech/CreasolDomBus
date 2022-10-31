@@ -1265,7 +1265,6 @@ def decode(Devices):
                                         Ro=10000
                                         To=25.0
                                         temp=0  #default
-                                        stringval="0"
                                         if (d.Options['function']=='3950'):
                                             #value=0..65535
                                             beta=3950
@@ -1281,7 +1280,7 @@ def decode(Devices):
                                     v=getOpt(d,"B=")
                                     b=float(v) if (v!="false") else 0
                                     temp=temp+b
-                                    if (temp>-50 and d.sValue!=stringval):
+                                    if (temp>-50 and d.sValue!=str(temp)):
                                         d.Update(nValue=int(temp), sValue=str(temp))
                                 elif (d.Type==PORTTYPE[PORTTYPE_SENSOR_HUM]):
                                     hum=int(value/10)
