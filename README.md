@@ -8,7 +8,7 @@ Websites: https://www.creasol.it/domotics
 For any support request, please write email to linux@creasol.it or click on http://support.creasol.it
 Also, it's possible to get support by Telegram https://t.me/DomBus  (DomBus public channel)
 
-# Requisites
+# Prerequisites
 
 * Python version 3.6.1 or later
 
@@ -43,9 +43,10 @@ git clone https://github.com/CreasolTech/CreasolDomBus
 service domoticz restart
 ```
 
-Then you can find the Creasol DomBus protocol in the **Setup -> Hardware panel**:
 
 In case of Windows opeating system, please follow the installation instructions at https://www.domoticz.com/wiki/Using_Python_plugins#Installing_Python_for_Windows and please note that Domoticz should be restarted to include new python plugins that have been installed.
+
+Then you can find the Creasol DomBus protocol in the **Setup -> Hardware panel**:
 
 **specify a name** (for example, dombus), select **Type Creasol DomBus** and **enter the serial device** used for RS485 bus.
 
