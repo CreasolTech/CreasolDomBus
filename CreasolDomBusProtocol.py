@@ -407,6 +407,8 @@ def convertValueToDombus(d, value):
         v=getOpt(d,"B=")
         b=float(v) if (v!="false") else 0
         return int((value-b)/a)
+    else:
+        return int(value)
 
 def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
     #add a command in the tx queue for the specified module (frameAddr)
@@ -1089,20 +1091,20 @@ def decode(Devices):
                                                 Log(LOG_INFO,f"portName={portName}")
                                                 if ("EV State" in portName):
                                                     # create two sliders, one for min and one for max SoC
-                                                    Domoticz.Device(Name="EV BatteryMin", TypeName="Dimmer", Unit=UnitFree, Description="Battery level under which the EV is charged using energy from the grid. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
-                                                    Devices[UnitFree].Update(nValue=1, sValue="50", Used=1, Name="EV BatteryMin")
-                                                    unit=getDeviceUnit(Devices,1) # find another free Unit to create EVSE BatteryMax virtual device
-                                                    if (UnitFree!=0xffff):
-                                                        Domoticz.Device(Name="EV BatteryMax", TypeName="Dimmer", Unit=UnitFree, Description="When battery level is between min and max, only energy from reneable will be used. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
-                                                        Devices[UnitFree].Update(nValue=1, sValue="80", Used=1, Name="EV BatteryMax")
-                                                    unit=getDeviceUnit(Devices,1)   # find another free Unit to create EVSE CurrentMax virtual device
-                                                    if (UnitFree!=0xffff):
-                                                        Options["LevelNames"]="0|8|12|16|20|24|28|32|36"
-                                                        Log(LOG_INFO,f"MaxCurrent Options={Options}")
-                                                        Domoticz.Device(Name="EV CurrentMax", TypeName="Selector Switch", Unit=UnitFree, Description="Maximum charging current. This virtual device is used by script_event_power.lua (@CreasolTech on github)", Options=Options).Create()
-                                                        Devices[UnitFree].Update(nValue=1, sValue="80", Used=1)
-                                                    unit=getDeviceUnit(Devices,1)
-                                                    #ToDo: if UnitFree>255 => no space in Devices[] table for a new device
+#                                                    Domoticz.Device(Name="EV BatteryMin", TypeName="Dimmer", Unit=UnitFree, Description="Battery level under which the EV is charged using energy from the grid. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
+#                                                    Devices[UnitFree].Update(nValue=1, sValue="50", Used=1, Name="EV BatteryMin")
+#                                                    unit=getDeviceUnit(Devices,1) # find another free Unit to create EVSE BatteryMax virtual device
+#                                                    if (UnitFree!=0xffff):
+#                                                        Domoticz.Device(Name="EV BatteryMax", TypeName="Dimmer", Unit=UnitFree, Description="When battery level is between min and max, only energy from reneable will be used. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
+#                                                        Devices[UnitFree].Update(nValue=1, sValue="80", Used=1, Name="EV BatteryMax")
+#                                                    unit=getDeviceUnit(Devices,1)   # find another free Unit to create EVSE CurrentMax virtual device
+#                                                    if (UnitFree!=0xffff):
+#                                                        Options["LevelNames"]="0|8|12|16|20|24|28|32|36"
+#                                                        Log(LOG_INFO,f"MaxCurrent Options={Options}")
+#                                                        Domoticz.Device(Name="EV CurrentMax", TypeName="Selector Switch", Unit=UnitFree, Description="Maximum charging current. This virtual device is used by script_event_power.lua (@CreasolTech on github)", Options=Options).Create()
+#                                                        Devices[UnitFree].Update(nValue=1, sValue="80", Used=1)
+#                                                    unit=getDeviceUnit(Devices,1)
+#                                                    #ToDo: if UnitFree>255 => no space in Devices[] table for a new device
                                                     Options={"LevelNames": "0|Dis|Con|Ch|Vent|AEV|APO|AW", "LevelActions": "", "LevelOffHidden": "True", "SelectorStyle": "0"}
                                                     typeName="Selector Switch"
                                                     sValue="0"
