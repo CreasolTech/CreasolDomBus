@@ -1316,7 +1316,7 @@ def decode(Devices):
                                     if (temp>-50 and hum>5 and d.sValue!=stringval):
                                         d.Update(nValue=int(temp), sValue=stringval)
                                     #txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
-                                    txQueueAdd(protocol, frameAddr,cmd,1,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                                    txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
                                 elif (d.Type==243):
                                     power=0 #default: set power=0
                                     #counter: value=newcountvalue, value2=oldcountvalue, arg5=0
@@ -1384,7 +1384,7 @@ def decode(Devices):
                                                 if (p!=0):
                                                     Devices[opposite].Update(nValue=0, sValue="0;"+str(energy))
                                 #txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
-                                txQueueAdd(protocol, frameAddr,cmd,1,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                                txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
                             elif (cmdLen==7 or cmdLen==8):
                                 # transmitted power (int16) + energy (uint32)
                                 value=(arg1<<8) + arg2
@@ -1402,7 +1402,7 @@ def decode(Devices):
                                     if (d.sValue!=stringval):
                                         d.Update(nValue=power, sValue=stringval)
                                     #txQueueAdd(protocol, frameAddr,CMD_SET,7,CMD_ACK,port,[arg1,arg2,arg3,arg4,arg5,arg6,0],1,1)
-                                    txQueueAdd(protocol, frameAddr,cmd,1,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                                    txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
             frameIdx=frameIdx+cmdLen+1
         #remove current frame from buffer
         for i in range(0,frameLen):

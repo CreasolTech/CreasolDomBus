@@ -4,6 +4,10 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
+
+1.1.5 2022-12-03
+BugFix on ACK transmission for power+energy frames
+
 1.1.4 2022-11-xx
 DB34: added support to DCMD on power
 
