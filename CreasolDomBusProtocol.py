@@ -554,7 +554,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     getDeviceID(frameAddr,port)
     Log(LOG_DEBUG,"Parse Description field for device "+devID)
     setOpt=0
-    setType=0
+    setType=0       #DomBus PORTTYPE value
     setNewAddr=''   #new address for modbus device
     setHwaddr=0
     setCal=32768    #calibration offset 32768=ignore
@@ -601,7 +601,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         elif optu[:9]=="FUNCTION=":
             # Used to convert an analog value to another
             Options['function']=optu[9:]
-            setType=PORTTYPE[PORTTYPE_SENSOR_TEMP]
+            setType=PORTTYPE_IN_ANALOG
             setTypeDefined=1
             typeName="Temperature"
             setOptNames+=opt+","
@@ -818,7 +818,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     if (setHwaddr!=0 and setHwaddr!=0xffff): #hwaddr not 0 
         # remove HWADDR=0X1234 option from the device description
         # send command to change hwaddr
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 3, 0, 0, [(setHwaddr >> 8), (setHwaddr&0xff)], TX_RETRY,1)
+        Log(LOG_DEBUG,f"Set HWADDR={setHwaddr}")
+        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, 0, [(setHwaddr >> 8), (setHwaddr&0xff), (0-(setHwaddr >> 8)-(setHwaddr&0xff)-0xa5)], TX_RETRY,1)
     elif (setNewAddr!=''): # set modbus address
         # send command to change modbus addr
         Log(LOG_INFO,f"Send command to change modbus device address to {setNewAddr}")
@@ -1154,7 +1155,13 @@ def decode(Devices):
                 if (frameAddr!=0xffff and dstAddr==0):
                     #Receive command from a slave module
                     getDeviceID(frameAddr,port)
-                    if (cmd==CMD_GET): 
+                    if (cmd==CMD_CONFIG): 
+                        if ((port&0xf0)==0xe0): #send text to the log file: port incremented at each transmission
+                            Log(LOG_INFO,f"Msg #{port&15} from {devID}: {rxbuffer[portIdx+1:portIdx+cmdLen].decode()}")
+                            if (frameAddr in modules):
+                                modules[frameAddr][LASTSTATUS]=0    #force transmit output status
+                            txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
+                    elif (cmd==CMD_GET): 
                         if (port==0): #port==0 => request from module to get status of all output!  NOT USED by any module, actually
                             txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)   #tx ack
                             if (frameAddr in modules):

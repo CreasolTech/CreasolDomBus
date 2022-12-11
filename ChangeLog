@@ -5,6 +5,12 @@ Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
 
+1.1.6 2022-12-11
+Added a cmd checksum for HWADDR command, because new DomBus modules 02h1 needs
+	an extra byte with an additional check
+BugFix: when configuring a device as FUNCTION=3950 , dombus port was not
+	configured properly
+
 1.1.5 2022-12-03
 BugFix on ACK transmission for power+energy frames
 
