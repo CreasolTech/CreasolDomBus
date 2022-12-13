@@ -521,12 +521,12 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
         elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
             txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[Level],TX_RETRY,1) #Level: 0, 10, 20, ....
         elif (hasattr(d,'SwitchType') and (d.SwitchType==15 or d.SwitchType==14)): #venetian blinds
-            if (Command=='Off'): #Open
+            if (Command=='Off' or Command=='Open'): #Open
                 v=getOpt(d,"TIMEOPEN=")
                 duration=int(v) if (v!="false") else 25
                 if (duration<=0 or duration>120): duration=25
                 newstate=0x80|duration   
-            elif (Command=='On'): #Close
+            elif (Command=='On' or Command=='Close'): #Close
                 v=getOpt(d,"TIMECLOSE=")
                 duration=int(v) if (v!="false") else 25
                 if (duration<=0 or duration>120): duration=25

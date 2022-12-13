@@ -5,6 +5,11 @@ Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
 
+1.1.7 2022-12-13
+Ventian Blind device: since 2022.2 version, commands now are Stop, Close, Open
+	instead of Stop, On, Off. This version works with older and newer
+	version of Domoticz.
+
 1.1.6 2022-12-11
 Added a cmd checksum for HWADDR command, because new DomBus modules 02h1 needs
 	an extra byte with an additional check
