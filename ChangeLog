@@ -4,6 +4,16 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
+1.1.8 2022-12-29
+EVSE: added parameters MaxPowerTime, MaxPower2, MaxPower2Time to get a smart
+charging session at the maximum power supported by the electricity meter:
+
+MaxPower2 (e.g. 7600 Watt)                      ####################
+MaxPower  (e.g. 6600 Watt)  ##################################################
+Time                        start               90min              180min
+
+MaxPower2 must be > MaxPower
+MaxPowerTime and MaxPower2Time must be in the range 60-43200 seconds
 
 1.1.7 2022-12-13
 Ventian Blind device: since 2022.2 version, commands now are Stop, Close, Open
