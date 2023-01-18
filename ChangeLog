@@ -4,6 +4,27 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 ChangeLog
+1.2.0 20230118
+DCMD: added the possibility to trigger a scene or group
+	DCMD(Pulse)=0.e:Toggle	toggle a group with idx=14 (14=0x0e in hex
+							format) when a pulse 0.5s is received
+							For example turn on/off a group of lights
+
+	DCMD(Pulse1)=0.f:Off	deactivate a group with idx=15 (f=15) when 
+	                        a pulse 1s is received
+							For example turn off a group of lights
+	DCDM(Pulse2)=0.10:On	activate a scene/group when a long pulse (2s) is
+							received
+							For example activate a scene to switch off all
+							lights, loads and heaters when leaving the house
+
+EVSE: 
+	Changed parameters MAXPOWER to EVMAXPOWER, MAXCURRENT to EVMAXCURRENT...
+	Added parameter EVWAITTIME : Time to wait, in seconds, before changing 
+	  EV current again. This parameter depends by how fast is the on board
+	  charger to modify the EV charging current. SAE J1772 specify that OBD
+	  shoud adapt charging current within 6 seconds.
+
 1.1.8 2022-12-29
 EVSE: added parameters MaxPowerTime, MaxPower2, MaxPower2Time to get a smart
 charging session at the maximum power supported by the electricity meter:

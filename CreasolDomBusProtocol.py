@@ -26,12 +26,16 @@ Protocol definition (in bytes):
 
     
 """
+
+JSONURL = "http://127.0.0.1:8080/json.htm" #port may be different. Also, 127.0.0.1 should be enabled in the configuration
+
 import Domoticz
 import time
 import struct
 import re
 import json
 import math
+import requests     # needed to call a scene/group by a DCMD command from a module
 
 #if 1, when a module does not transmit for more than 15 minutes (MODULE_ALIVE_TIME), it will appear in red (TimedOut)
 PROTOCOL1_WITH_PERIODIC_TX=0    # set to 1 if all existing modules transmit their status periodically (oldest modules with protocol 1 did not)
@@ -71,6 +75,7 @@ SUBCMD_SET5=0x05                #Send parameter 5 (16bit value)
 SUBCMD_SET6=0x06                #Send parameter 6 (16bit value)
 SUBCMD_SET7=0x07                #Send parameter 7 (16bit value)
 SUBCMD_SET8=0x08                #Send parameter 8 (16bit value)
+SUBCMD_SET9=0x09                #Send parameter 9 (16bit value)
 SUBCMD_SETMAX=0x10              #Send parameter 16
 
 PORTTYPE_DISABLED=0x0000        #port not used
@@ -571,6 +576,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     setMaxPower2=0
     setMaxPowerTime=0
     setMaxPower2Time=0
+    setWaitTime=0
     setStartPower=0
     setStopTime=0
     setAutoStart=0
@@ -635,47 +641,52 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
                 # Send command to program this device to the new address
                 if (addr>=1 and addr<=5): 
                     setNewAddr=addr
-        elif optu[:11]=="MAXCURRENT=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
-            setMaxCurrent=int(float(opt[11:]))
+        elif optu[:13]=="EVMAXCURRENT=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setMaxCurrent=int(float(opt[13:]))
             if (setMaxCurrent<6 or setMaxCurrent>36):
                 setMaxCurrent=16   # default value
-            setOptNames+=f"MAXCURRENT={setMaxCurrent},"
+            setOptNames+=f"EVMAXCURRENT={setMaxCurrent},"
             Log(LOG_INFO,f"setOptNames={setOptNames}")
-        elif optu[:9]=="MAXPOWER=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
-            setMaxPower=int(float(opt[9:]))
+        elif optu[:11]=="EVMAXPOWER=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setMaxPower=int(float(opt[11:]))
             if (setMaxPower<1000 or setMaxPower>25000):
                 setMaxPower=3300   # default value
-            setOptNames+=f"MAXPOWER={setMaxPower},"
-        elif optu[:10]=="MAXPOWER2=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
-            setMaxPower2=int(float(opt[10:]))
+            setOptNames+=f"EVMAXPOWER={setMaxPower},"
+        elif optu[:12]=="EVMAXPOWER2=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setMaxPower2=int(float(opt[12:]))
             if (setMaxPower2<1000 or setMaxPower>25000):
                 setMaxPower=0   # default value: ignore
-            setOptNames+=f"MAXPOWER2={setMaxPower2},"
-        elif optu[:13]=="MAXPOWERTIME=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
-            setMaxPowerTime=int(float(opt[13:]))
+            setOptNames+=f"EVMAXPOWER2={setMaxPower2},"
+        elif optu[:15]=="EVMAXPOWERTIME=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setMaxPowerTime=int(float(opt[15:]))
             if (setMaxPowerTime<60 or setMaxPowerTime>43200):
                 setMaxPowerTime=0   # default value: 0 => ignore
-            setOptNames+=f"MAXPOWERTIME={setMaxPowerTime},"
-        elif optu[:14]=="MAXPOWER2TIME=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
-            setMaxPower2Time=int(float(opt[14:]))
+            setOptNames+=f"EVMAXPOWERTIME={setMaxPowerTime},"
+        elif optu[:16]=="EVMAXPOWER2TIME=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setMaxPower2Time=int(float(opt[16:]))
             if (setMaxPower2Time<60 or setMaxPower2Time>43200):
                 setMaxPower2Time=0   # default value: 0 => ignore
-            setOptNames+=f"MAXPOWER2TIME={setMaxPower2Time},"
-        elif optu[:11]=="STARTPOWER=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
-            setStartPower=int(float(opt[11:]))
+            setOptNames+=f"EVMAXPOWER2TIME={setMaxPower2Time},"
+        elif optu[:13]=="EVSTARTPOWER=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setStartPower=int(float(opt[13:]))
             if (setStartPower<800 or setStartPower>25000):
                 setStartPower=1200   # default value
-            setOptNames+=f"STARTPOWER={setStartPower},"
-        elif optu[:9]=="STOPTIME=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
-            setStopTime=int(float(opt[9:]))
+            setOptNames+=f"EVSTARTPOWER={setStartPower},"
+        elif optu[:11]=="EVSTOPTIME=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setStopTime=int(float(opt[11:]))
             if (setStopTime<5 or setStopTime>600):
                 setStopTime=90   # default value
-            setOptNames+=f"STOPTIME={setStopTime},"
-        elif optu[:10]=="AUTOSTART=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
-            setAutoStart=int(float(opt[10:]))
+            setOptNames+=f"EVSTOPTIME={setStopTime},"
+        elif optu[:12]=="EVAUTOSTART=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setAutoStart=int(float(opt[12:]))
             if (setAutoStart>1):
                 setAutoStart=1   # default value
-            setOptNames+=f"AUTOSTART={setAutoStart},"
+            setOptNames+=f"EVAUTOSTART={setAutoStart},"
+        elif optu[:11]=="EVWAITTIME=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setWaitTime=int(float(opt[11:]))
+            if (setWaitTime==0):
+                setWaitTime=6   # default value
+            setOptNames+=f"EVWAITTIME={setWaitTime},"
         elif optu[:9]=="HWADDR=0X" and len(opt)==13:
             #set hardware address
             hwaddr=int(optu[7:],16)
@@ -903,6 +914,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET7, setMaxPowerTime>>8, setMaxPowerTime&0xff], TX_RETRY,0) 
     if (setMaxPower2Time!=0): # EV Mode: set maximum time charging at this power (e.g. 5400 = 90 minutes)
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET8, setMaxPower2Time>>8, setMaxPower2Time&0xff], TX_RETRY,0) 
+    if (setWaitTime!=0): # EV Mode: set wait time after current change, before changing current again (e.g. 1-60, default 6s)
+        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET9, setWaitTime>>8, setWaitTime&0xff], TX_RETRY,0) 
         
     return
 
@@ -1436,6 +1449,22 @@ def decode(Devices):
                                         d.Update(nValue=power, sValue=stringval)
                                     #txQueueAdd(protocol, frameAddr,CMD_SET,7,CMD_ACK,port,[arg1,arg2,arg3,arg4,arg5,arg6,0],1,1)
                                     txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                    elif (cmd==CMD_DCMD): # DCMD command addressed to me? deactivate/activate/toggle a scene or groupa
+                        Log(LOG_INFO,f"Request to activate or deactivate scene/group with idx={port}")
+                        Log(LOG_INFO,str(Domoticz))
+                        switchcmd=''
+                        if arg1==1:
+                            switchcmd='Off'
+                        elif arg1==2:
+                            switchcmd='On'
+                        elif arg1==3:
+                            switchcmd='Toggle'
+                        if switchcmd!='':
+                            PARAMS = {'type':'command', 'param':'switchscene', 'idx':str(port), 'switchcmd':switchcmd}
+                            r=requests.get(url = JSONURL, params = PARAMS)
+                            # data = r.json()
+                        txQueueAdd(protocol, frameAddr, cmd, 2, CMD_ACK, port, [arg1], 1, 1)
+
             frameIdx=frameIdx+cmdLen+1
         #remove current frame from buffer
         for i in range(0,frameLen):
