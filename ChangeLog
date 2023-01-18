@@ -3,8 +3,9 @@ Author: Paolo Subiaco  linux@creasol.it
 https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
-ChangeLog
-1.2.0 20230118
+Creasol DomBus ChangeLog
+
+1.2.0 2023-01-18
 DCMD: added the possibility to trigger a scene or group
 	DCMD(Pulse)=0.e:Toggle	toggle a group with idx=14 (14=0x0e in hex
 							format) when a pulse 0.5s is received
@@ -22,7 +23,7 @@ EVSE:
 	Changed parameters MAXPOWER to EVMAXPOWER, MAXCURRENT to EVMAXCURRENT...
 	Added parameter EVWAITTIME : Time to wait, in seconds, before changing 
 	  EV current again. This parameter depends by how fast is the on board
-	  charger to modify the EV charging current. SAE J1772 specify that OBD
+	  charger to modify the EV charging current. SAE J1772 specifies that OBD
 	  shoud adapt charging current within 6 seconds.
 
 1.1.8 2022-12-29
