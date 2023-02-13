@@ -571,15 +571,15 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     setTypeDefined=0
     setDisableDefined=0
     setOptNames=""
-    setMaxCurrent=0
-    setMaxPower=0
-    setMaxPower2=0
-    setMaxPowerTime=0
-    setMaxPower2Time=0
-    setWaitTime=0
-    setStartPower=0
-    setStopTime=0
-    setAutoStart=0
+    setMaxCurrent=""
+    setMaxPower=""
+    setMaxPower2=""
+    setMaxPowerTime=""
+    setMaxPower2Time=""
+    setWaitTime=""
+    setStartPower=""
+    setStopTime=""
+    setAutoStart=""
     Options=Devices[Unit].Options
     #dombus command
 #    dcmd=[  # IN_EVENT,                 inValueL,   inValueH,   hwaddr, port,   outCmd,                 outValue
@@ -654,8 +654,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             setOptNames+=f"EVMAXPOWER={setMaxPower},"
         elif optu[:12]=="EVMAXPOWER2=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
             setMaxPower2=int(float(opt[12:]))
-            if (setMaxPower2<1000 or setMaxPower>25000):
-                setMaxPower=0   # default value: ignore
+            if (setMaxPower2<1000 or setMaxPower2>25000):
+                setMaxPower2=0   # default value: ignore
             setOptNames+=f"EVMAXPOWER2={setMaxPower2},"
         elif optu[:15]=="EVMAXPOWERTIME=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
             setMaxPowerTime=int(float(opt[15:]))
@@ -898,23 +898,23 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         if (setCal<0): 
             setCal+=65536
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_CALIBRATE, ((setCal>>8)&0xff), (setCal&0xff)], TX_RETRY, 0)
-    if (setMaxCurrent!=0): # EV Mode: set max current (cable) 
+    if (setMaxCurrent!=""): # EV Mode: set max current (cable) 
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, 0, setMaxCurrent], TX_RETRY,0) 
-    if (setMaxPower!=0): # EV Mode: set max power from grid (contractual power + 10%)
+    if (setMaxPower!=""): # EV Mode: set max power from grid (contractual power + 10%)
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET2, setMaxPower>>8, setMaxPower&0xff], TX_RETRY,0) 
-    if (setStartPower!=0):
+    if (setStartPower!=""):
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET3, ((setStartPower>>8)&0xff), (setStartPower&0xff)], TX_RETRY,0) 
-    if (setStopTime!=0):
+    if (setStopTime!=""):
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET4, ((setStopTime>>8)&0xff), (setStopTime&0xff)], TX_RETRY,0) 
-    if (setAutoStart!=0):
+    if (setAutoStart!=""):
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET5, ((setAutoStart>>8)&0xff), (setAutoStart&0xff)], TX_RETRY,0) 
-    if (setMaxPower2!=0): # EV Mode: set max power from grid, absolute maximum level (e.g. contractual power + 27%
+    if (setMaxPower2!=""): # EV Mode: set max power from grid, absolute maximum level (e.g. contractual power + 27%
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET6, setMaxPower2>>8, setMaxPower2&0xff], TX_RETRY,0) 
-    if (setMaxPowerTime!=0): # EV Mode: set maximum time charging at this power (e.g. 5400 = 90 minutes)
+    if (setMaxPowerTime!=""): # EV Mode: set maximum time charging at this power (e.g. 5400 = 90 minutes)
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET7, setMaxPowerTime>>8, setMaxPowerTime&0xff], TX_RETRY,0) 
-    if (setMaxPower2Time!=0): # EV Mode: set maximum time charging at this power (e.g. 5400 = 90 minutes)
+    if (setMaxPower2Time!=""): # EV Mode: set maximum time charging at this power (e.g. 5400 = 90 minutes)
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET8, setMaxPower2Time>>8, setMaxPower2Time&0xff], TX_RETRY,0) 
-    if (setWaitTime!=0): # EV Mode: set wait time after current change, before changing current again (e.g. 1-60, default 6s)
+    if (setWaitTime!=""): # EV Mode: set wait time after current change, before changing current again (e.g. 1-60, default 6s)
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET9, setWaitTime>>8, setWaitTime&0xff], TX_RETRY,0) 
         
     return
@@ -1156,7 +1156,7 @@ def decode(Devices):
                                                     setStartPower=1200
                                                     setStopTime=90
                                                     setAutoStart=1
-                                                    descr+=f",MAXCURRENT={setMaxCurrent},MAXPOWER={setMaxPower},STARTPOWER={setStartPower},STOPTIME={setStopTime},AUTOSTART={setAutoStart}"
+                                                    descr+=f",EVMAXCURRENT={setMaxCurrent},EVMAXPOWER={setMaxPower},EVSTARTPOWER={setStartPower},EVSTOPTIME={setStopTime},EVAUTOSTART={setAutoStart}"
                                                     nValue=0
                                                     sValue="0"
                                                     # Configure 
@@ -1327,7 +1327,7 @@ def decode(Devices):
                                     #Now manage A and B
                                     v=getOpt(d,"B=")
                                     b=float(v) if (v!="false") else 0
-                                    temp=temp+b
+                                    temp=round(temp+b, 1)
                                     if (temp>-50 and d.sValue!=str(temp)):
                                         d.Update(nValue=int(temp), sValue=str(temp))
                                 elif (d.Type==PORTTYPE[PORTTYPE_SENSOR_HUM]):
