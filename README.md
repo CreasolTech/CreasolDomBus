@@ -36,6 +36,9 @@ cd /home/pi/domoticz/plugins
 #fetch the Python Plugin Manager (that can be used to install/upgrade other plugins, including Creasol DomBus)
 git clone https://github.com/ycahome/pp-manager
 
+#install python modules: you can use apt (Debian Linux) or pip3 
+pip3 install requests
+
 #fetch Creasol Plugin
 git clone https://github.com/CreasolTech/CreasolDomBus
 
