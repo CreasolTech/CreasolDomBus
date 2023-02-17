@@ -6,7 +6,8 @@ Telegram channel: https://t.me/DomBus  @DomBus
 Creasol DomBus ChangeLog
 1.2.1 2023-02-13
 	NTC 10k temperature: limit precision to 1 digit even when using B
-	coefficient (TonyA)
+	coefficient. Also computed and sent the average value. (TonyA)
+
 
 1.2.0 2023-01-18
 DCMD: added the possibility to trigger a scene or group

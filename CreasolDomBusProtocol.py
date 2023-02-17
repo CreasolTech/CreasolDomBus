@@ -1320,10 +1320,21 @@ def decode(Devices):
                                             r=value*Ro/(65535-value)
                                             temp=math.log(r / Ro) / beta      # log(R/Ro) / beta
                                             temp+=1.0/(To + 273.15)
-                                            temp=round((1.0/temp)-273.15, 1)
+                                            temp=round((1.0/temp)-273.15, 2)
                                     else:
-                                        temp=round(value/10.0-273.1,1)
+                                        temp=round(value/10.0-273.1,2)
                                         #Log(LOG_DEBUG,"Temperature: value="+str(value)+" temp="+str(temp)) 
+
+                                    # compute the averaged temperature and save it in d.Options[]
+                                    avgTemp=float(d.sValue)
+                                    if 'avgTemp' in d.Options:
+                                        avgTemp=d.Options['avgTemp']
+                                    Log(LOG_DEBUG,"temp="+str(temp)+" avgTemp="+str(avgTemp))
+                                    if abs(avgTemp-temp)<1:
+                                        temp=(avgTemp*5+temp)/6
+                                        Log(LOG_DEBUG,"tempDiff<1 => temp=(avgTemp*5+temp)/6="+str(temp))
+                                    d.Options['avgTemp']=round(temp,2)   #save current avg value, with 2 digit precision
+
                                     #Now manage A and B
                                     v=getOpt(d,"B=")
                                     b=float(v) if (v!="false") else 0
