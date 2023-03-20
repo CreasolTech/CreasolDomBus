@@ -47,7 +47,7 @@ service domoticz restart
 ```
 
 
-In case of Windows opeating system, please follow the installation instructions at https://www.domoticz.com/wiki/Using_Python_plugins#Installing_Python_for_Windows and please note that Domoticz should be restarted to include new python plugins that have been installed.
+In case of Windows opeating system, please follow the installation instructions at https://www.domoticz.com/wiki/Using_Python_plugins#Installing_Python_for_Windows and please note that Domoticz should be restarted to include new python plugins that have been installed. Please note that Python should be installed by Administrator, not by a user.
 
 Then you can find the Creasol DomBus protocol in the **Setup -> Hardware panel**:
 

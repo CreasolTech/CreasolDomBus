@@ -27,7 +27,7 @@ Protocol definition (in bytes):
     
 """
 
-JSONURL = "http://127.0.0.1:8080/json.htm" #port may be different. Also, 127.0.0.1 should be enabled in the configuration
+JSONURL = "http://127.0.0.1:8080/json.htm" #port may be different. Also, 127.0.0.1 should be enabled in the configuration "Trusted Network" field.
 
 import Domoticz
 import time
@@ -1326,9 +1326,10 @@ def decode(Devices):
                                         #Log(LOG_DEBUG,"Temperature: value="+str(value)+" temp="+str(temp)) 
 
                                     # compute the averaged temperature and save it in d.Options[]
-                                    avgTemp=float(d.sValue)
                                     if 'avgTemp' in d.Options:
                                         avgTemp=d.Options['avgTemp']
+                                    else:
+                                        avgTemp=25
                                     Log(LOG_DEBUG,"temp="+str(temp)+" avgTemp="+str(avgTemp))
                                     if abs(avgTemp-temp)<1:
                                         temp=(avgTemp*5+temp)/6
