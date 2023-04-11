@@ -1417,7 +1417,7 @@ def decode(Devices):
                                         else:
                                             avgTemp=25
                                         #Log(LOG_DEBUG,"temp="+str(temp)+" avgTemp="+str(avgTemp))
-                                        if abs(avgTemp-temp)<1:
+                                        if abs(avgTemp-temp)<2:
                                             temp=(avgTemp*5+temp)/6
                                             #Log(LOG_DEBUG,"tempDiff<1 => temp=(avgTemp*5+temp)/6="+str(temp))
                                         d.Options['avgTemp']=round(temp,2)   #save current avg value, with 2 digit precision
