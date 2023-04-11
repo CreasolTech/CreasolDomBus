@@ -84,6 +84,7 @@ PORTTYPE_OUT_RELAY_LP=0x0004    #relay output with lowpower PWM
 PORTTYPE_OUT_LEDSTATUS=0x0008   #output used as led status
 PORTTYPE_OUT_DIMMER=0x0010      #dimmer output, 0-100%
 PORTTYPE_OUT_BUZZER=0x0020      #buzzer outputs (2 ports used as buzzer output, in push-pull)
+PORTTYPE_OUT_FLASH=0x0020       #flash output, led, buzzer: same as OUT_BUZZER
 PORTTYPE_IN_AC=0x0040           #input AC 50Hz (with optocoupler)
 PORTTYPE_IN_DIGITAL=0x0080      #input digital
 PORTTYPE_IN_ANALOG=0x0100       #input analog (ADC)
@@ -109,9 +110,9 @@ PORTOPT_VOLTAGE=0x0106          #Voltage in Volt/10
 PORTOPT_POWER_FACTOR=0x0108     #Power factore 1/1000
 PORTOPT_FREQUENCY=0x010a        #Frequency Hz/100
 
-PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_IN_COUNTER:243, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244, PORTTYPE_OUT_ANALOG:244}
+PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_OUT_FLASH:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_IN_COUNTER:243, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244, PORTTYPE_OUT_ANALOG:244}
 
-PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_IN_COUNTER:"Counter Incremental", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_ANALOG:"Dimmer", PORTTYPE_CUSTOM:"Dimmer"}
+PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Selector Switch", PORTTYPE_OUT_FLASH:"Selector Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_IN_COUNTER:"Counter Incremental", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_ANALOG:"Dimmer", PORTTYPE_CUSTOM:"Dimmer"}
 
 PORTTYPES={
         "DISABLED":0x0000,          # port not used
@@ -119,6 +120,7 @@ PORTTYPES={
         "OUT_RELAY_LP":0x0004,      # relay output
         "OUT_LEDSTATUS":0x0008,     # output used as led status
         "OUT_DIMMER":0x0010,        # dimmer output
+        "OUT_FLASH":0x0020,         # buzzer output or flash or led flashing
         "OUT_BUZZER":0x0020,        # buzzer output (2 ports, push-pull)
         "IN_AC":0x0040,             # input AC 50Hz (with optocoupler)
         "IN_DIGITAL":0x0080,        # input digital
@@ -147,7 +149,8 @@ PORTTYPENAME={  #Used to set the device TypeName
         "OUT_RELAY_LP":"Switch",
         "OUT_LEDSTATUS":"Switch", # output used as led status
         "OUT_DIMMER":"Dimmer",
-        "OUT_BUZZER":"Switch",
+        "OUT_BUZZER":"Selector Switch",
+        "OUT_FLASH":"Selector Switch",
         "IN_AC":"Switch",
         "IN_DIGITAL":"Switch",
         "IN_ANALOG":"Voltage",
@@ -192,6 +195,18 @@ DCMD_OUT_CMDS={
         "MAX":      7,      #Max number of commands
         }
 
+TYPENAME2TYPESUB={
+        #Typename:      [Type, SubType, Switchtype]
+        'Switch':       [244,73,0],
+        'Dimmer':       [244,73,7],
+        'Voltage':      [243,8,0],
+        'Selector Switch':  [244,62,0],
+        'Counter Incremental': [243,28,0],
+        'Humidity':     [81,1,0],
+        'Temperature':  [80,5,0],
+        'Temp+Hum':     [82,1,0],
+        'Distance':     [243,27,0],
+        }
 
 rxbuffer=bytearray()         #serial rx buffer
 txbuffer=bytearray()         #serial tx buffer
@@ -285,15 +300,19 @@ def checksum(protocol, buffer):
     return
 
 def dump(protocol, buffer,frameLen,direction):
+    #if protocol==0 => send to log with LOG_WARN priority. Used when a invalid frame is received
     #buffer=frame buffer
     #frameLen=length of frame in bytes
     #direction="RX" or "TX"
-    if (protocol==1):
+    if (protocol==1 or protocol==0):
         f="P:1 "
         fl=frameLen if (frameLen<=len(buffer)) else len(buffer) #manage the case that frame is received only partially
         for i in range(0, fl):
             f+="%.2x " % int(buffer[i])
-        Log(LOG_DUMP,direction+" frame: "+f)
+        if protocol==0:
+            Log(LOG_WARN,direction+" frame: "+f)
+        else:
+            Log(LOG_DUMP,direction+" frame: "+f)
     elif (logLevel>=LOG_INFO):
         f="P:2 "
         f+="%.2x " % int(buffer[0])
@@ -491,7 +510,7 @@ def txOutputsStatus(Devices,frameAddr):
         if (d.Used==1 and d.DeviceID[:7]==deviceIDMask):
             # device is used and matches frameAddr
             # check that this is an output
-            if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL] and re.search('(OUT_DIGITAL|OUT_RELAY_LP|OUT_DIMMER|OUT_BUZZER|OUT_ANALOG)',d.Description)):
+            if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL] and re.search('(OUT_DIGITAL|OUT_RELAY_LP|OUT_DIMMER|OUT_FLASH|OUT_BUZZER|OUT_ANALOG)',d.Description)):
                 # output! get the port and output state
                 port=int("0x"+d.DeviceID[7:11],0)
                 if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
@@ -603,7 +622,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
                 setOptNames=''
             else:
                 setOpt=setOpt|PORTOPTS[optu]
-                setOptNames+=opt+","
+                setOptNames+=optu+","
             setOptDefined=1
         elif optu[:2]=="A=":
             setOptNames+=opt+","
@@ -696,6 +715,9 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             #set which ports are enabled, for this device, and remove disabled ports to free space in Devices[]
             #syntax: DISABLE=1:2:3:4:5:10:11
             setOptNames+="DISABLE="
+            portsDisabledOld=[]
+            if deviceAddr in portsDisabled:
+                portsDisabledOld=portsDisabled[deviceAddr]  # save old number of disabled ports
             portsDisabled[deviceAddr]=[]
             portsDisabledWrite=3   #write portDisabled on a json file in 3*heartbeat_interval (3*10s)
             setDisableDefined=1
@@ -711,6 +733,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
                     if (p>1 and p<=32):
                         if p not in portsDisabled[deviceAddr]:
                             portsDisabled[deviceAddr].append(p)
+                        if p in portsDisabledOld:
+                            portsDisabledOld.remove(p)
                         #remove the device corresponding to frameAddr and disabled port
                         deviceid="H{:04x}_P{:04x}".format(frameAddr, p)
                         for u in Devices:
@@ -722,6 +746,9 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
                         setOptNames+=str(p)+":"
             if (setOptNames[-1:]==':'):
                 setOptNames=setOptNames[:-1]    #remove trailing ':'
+            if not portsDisabledOld:
+                # in the old DISABLE= there were ports that now are enabled => request port configuration to enable previously disabled ports
+                txQueueAskConfig(protocol, frameAddr)
             setOptNames+=','                
         elif (optu[:6]=="DESCR=" or optu[:10]=="TIMECLOSE=" or optu[:9]=="TIMEOPEN="):
             setOptNames+=opt+","
@@ -881,17 +908,52 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     
     descr='ID='+devID+','+setTypeName+','+setOptNames if (setTypeDefined==1) else setOptNames
     if setTypeDefined != 0: #type was defined in the description => change TypeName, if different
+        if Devices[Unit].Type!=TYPENAME2TYPESUB[typeName][0] and Devices[Unit].SubType!=TYPENAME2TYPESUB[typeName][1]:
+            # different typename from before: purge unused Options
+            Log(LOG_INFO,f"Changed TypeName => purge Options dictionary (now Options={Options})")
+            nValue=0
+            sValue='0'
+            if typeName!='Selector Switch':
+                if 'LevelNames' in Options: del Options['LevelNames']
+                if 'LevelOffHidden' in Options: del Options['LevelOffHidden']
+                if 'SelectorStyle' in Options: del Options['SelectorStyle']
+            else:
+                sValue='0'
+
+            if typeName!='Counter Incremental' and typeName!='kWh':
+                if 'divider' in Options: del Options['divider']
+                if 'EnergyMeterMode' in Options: del Options['EnergyMeterMode']
+                if 'SignedWatt' in Options: del Options['SignedWatt']
+                if 'opposite' in Options: del Options['opposite']
+            else:
+                sValue='0;0'
+
+            if typeName!='Custom':
+                if 'Custom' in Options: del Options['Custom']
+            if typeName!='Temperature':
+                if 'function' in Options: del Options['function']
+                if 'avgTemp' in Options: del Options['avgTemp']
+            else:
+                sValue="0"
+        else:
+            #same TypeName as before => device not changed
+            nValue=Devices[Unit].nValue
+            sValue=Devices[Unit].sValue
+                
         if (setTypeName=="IN_TWINBUTTON" or setTypeName=="OUT_BLIND"): #selector
             if "LevelNames" not in Options:
                 Options["LevelNames"]="Off|Down|Up"
                 #Options["LevelOffHidden"]="false"
                 #Options["SelectorStyle"]="0"
-        if (len(Options)>0):
-            Log(LOG_INFO,"TypeName="+str(typeName)+", nValue="+str(Devices[Unit].nValue)+", sValue="+str(Devices[Unit].sValue)+", Description="+str(descr)+", Options="+str(Options))
-            Devices[Unit].Update(TypeName=typeName, nValue=Devices[Unit].nValue, sValue=Devices[Unit].sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
+
+#        if (len(Options)>0):
+        if (True):
+            Log(LOG_INFO,"TypeName='"+str(typeName)+"', nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(Options))
+            Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
         else:
-            Log(LOG_INFO,"TypeName="+str(typeName)+", nValue="+str(Devices[Unit].nValue)+", sValue="+str(Devices[Unit].sValue)+", Description="+str(descr))
-            Devices[Unit].Update(TypeName=typeName, nValue=Devices[Unit].nValue, sValue=Devices[Unit].sValue, Description=str(descr))  # Update description (removing HWADDR=0x1234)
+            Log(LOG_INFO,"TypeName="+str(typeName)+", nValue="+str(nValue)+", sValue="+str(sValue)+", Description="+str(descr))
+            Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr))  # Update description (removing HWADDR=0x1234)
+        Log(LOG_INFO,"Device with TypeName="+str(typeName)+" updated!")
     else: #type not defined in description => don't change it!
         Devices[Unit].Update(nValue=Devices[Unit].nValue, sValue=Devices[Unit].sValue, Description=str(descr))  # Update description (removing HWADDR=0x1234)
     if (setCal!=32768): #new calibration value
@@ -922,347 +984,510 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
 def decode(Devices):
     # align rxbuffer[] so it starts with a preamble
     global modules, txQueue, rxbuffer, UnitFree, deviceID, protocol
-    while (len(rxbuffer)>=FRAME_LEN_MIN and (rxbuffer[0]!=PREAMBLE_DEVICE and rxbuffer[0]!=PREAMBLE)):
-        rxbuffer.pop(0)
-    if (len(rxbuffer)<FRAME_LEN_MIN): 
-        return
-    frameError=1
-    #decode frame RXed from serial port
-    #frame structure was explained above, in the comments
-    if (rxbuffer[0]==PREAMBLE_DEVICE):
-        #protocol 1.0 (short version, without sender address)
-        protocol=1
-        frameLen=int(rxbuffer[FRAME_LEN])+FRAME_HEADER+1
-        if frameLen < FRAME_LEN_MIN:
-            frameError=4    # Error, frame must be longer!
-        elif len(rxbuffer) >= frameLen:
-            #length of frame is in the range
-            # compute and compare checksum
-            checksum(protocol, rxbuffer)
-            if (logLevel>=LOG_DUMPALL):
-                dump(protocol, rxbuffer,frameLen,"RX")
-            if (checksumValue == rxbuffer[frameLen-1]):
-                #frame checksum is ok
-                frameAddr=int(rxbuffer[1])*256+int(rxbuffer[2])
-                frameIdx=FRAME_HEADER
-                dstAddr=0;  #not specified in this protocol => force dstAddr=0
-                if frameAddr!=0xffff and frameAddr not in modules: 
-                    # first time receive data from this module: ask for configuration?
-                    modules[frameAddr]=[int(time.time()),0,0,protocol,0]   #transmit now the output status
-                    #ask for port configuration?
-                    if rxbuffer[FRAME_HEADER]!=CMD_CONFIG:
-                        txQueueAskConfig(protocol,frameAddr) #ask for configuration only if the device is not already sending configuration
-                #broadcast or txQueue exists or txQueue just created
-                frameError=0
-            else:
-                frameError=2    #2=checksum error
-        else:
-            frameError=3        #3=insufficient data
 
-    elif (rxbuffer[0]==PREAMBLE):
-        #protocol 2
-        protocol=2
-        frameLen=int(rxbuffer[FRAME_LEN2])+FRAME_HEADER2+1
-        if frameLen<FRAME_LEN_MIN2:
-            frameError=4    # Error, frame must be longer!
-        elif len(rxbuffer)>=frameLen:
-            #length of frame is in the range
-            # compute and compare checksum
-            checksum(protocol, rxbuffer)
-            if logLevel>=LOG_DUMP:
-                dump(protocol, rxbuffer,frameLen,"RX")
-            if (checksumValue == rxbuffer[frameLen-1]):
-                #frame checksum is ok
-                frameAddr=int(rxbuffer[3])*256+int(rxbuffer[4]) #sender
-                dstAddr=int(rxbuffer[1])*256+int(rxbuffer[2])   #destination
-                frameIdx=FRAME_HEADER2
-                if (frameAddr!=0xffff and frameAddr not in modules): 
-                    # first time receive data from this module: ask for configuration?
-                    modules[frameAddr]=[int(time.time()),0,0,protocol,0]   #transmit now the output status
-                    #ask for port configuration?
-                    if rxbuffer[FRAME_HEADER2]!=CMD_CONFIG:
-                        txQueueAskConfig(protocol,frameAddr) #ask for configuration only if the device is not already sending configuration
-                #broadcast or txQueue exists or txQueue just created
-                frameError=0               
+    while len(rxbuffer)>=FRAME_LEN_MIN: 
+        # seek for preamble
+        while (len(rxbuffer)>1 and rxbuffer[0]!=PREAMBLE_DEVICE and rxbuffer[0]!=PREAMBLE):
+            rxbuffer.pop(0)
+        if (len(rxbuffer)<FRAME_LEN_MIN):
+            return
+        frameError=1
+        #decode frame RXed from serial port
+        #frame structure was explained above, in the comments
+        if (rxbuffer[0]==PREAMBLE_DEVICE):
+            #protocol 1.0 (short version, without sender address)
+            protocol=1
+            frameLen=int(rxbuffer[FRAME_LEN])+FRAME_HEADER+1
+            if frameLen < FRAME_LEN_MIN:
+                frameError=4    # Error, frame must be longer! Invalid frame, to be discharged
+            elif len(rxbuffer) >= frameLen:
+                #length of frame is in the range
+                # compute and compare checksum
+                checksum(protocol, rxbuffer)
+                if (logLevel>=LOG_DUMPALL):
+                    dump(protocol, rxbuffer,frameLen,"RX")
+                if (checksumValue == rxbuffer[frameLen-1]):
+                    #frame checksum is ok
+                    frameAddr=int(rxbuffer[1])*256+int(rxbuffer[2])
+                    frameIdx=FRAME_HEADER
+                    dstAddr=0;  #not specified in this protocol => force dstAddr=0
+                    if frameAddr!=0xffff and frameAddr not in modules: 
+                        # first time receive data from this module: ask for configuration?
+                        modules[frameAddr]=[int(time.time()),0,0,protocol,0]   #transmit now the output status
+                        #ask for port configuration?
+                        if rxbuffer[FRAME_HEADER]!=CMD_CONFIG:
+                            txQueueAskConfig(protocol,frameAddr) #ask for configuration only if the device is not already sending configuration
+                    #broadcast or txQueue exists or txQueue just created
+                    frameError=0
+                else:
+                    frameError=2    #2=checksum error
             else:
-                frameError=2    #2=checksum error
-        else:
-            frameError=3        #3=insufficient data
-                
-    if (frameError==0): #parse frame
-        while (frameIdx<frameLen-2):
-            cmd=rxbuffer[frameIdx]
-            cmdAck=cmd&CMD_ACK
-            portIdx=frameIdx+1
-            cmdLen=cmd&CMD_LEN_MASK
-            if (protocol!=1):
-                cmdLen*=2
-            cmd&=CMD_MASK
-            port=rxbuffer[portIdx]
-            arg1=rxbuffer[portIdx+1] if (cmdLen>=2) else 0 #port 
-            arg2=rxbuffer[portIdx+2] if (cmdLen>=3) else 0
-            arg3=rxbuffer[portIdx+3] if (cmdLen>=4) else 0
-            arg4=rxbuffer[portIdx+4] if (cmdLen>=5) else 0
-            arg5=rxbuffer[portIdx+5] if (cmdLen>=6) else 0
-            arg6=rxbuffer[portIdx+6] if (cmdLen>=7) else 0
-            arg7=rxbuffer[portIdx+7] if (cmdLen>=8) else 0
-            arg8=rxbuffer[portIdx+8] if (cmdLen>=9) else 0
-            arg9=rxbuffer[portIdx+9] if (cmdLen>=10) else 0
-            arg10=rxbuffer[portIdx+10] if (cmdLen>=11) else 0
-            arg11=rxbuffer[portIdx+11] if (cmdLen>=12) else 0
-            getDeviceID(frameAddr, port)
+                if frameLen<=FRAME_LEN_MAX or (rxbuffer[FRAME_HEADER]==0x09 and rxbuffer[FRAME_HEADER+1]==0xff):    # waiting for DomBus txConfig()
+                    frameError=3        #3=insufficient data
+                # else frameError=1 => invalid
+        elif (rxbuffer[0]==PREAMBLE):
+            #protocol 2
+            protocol=2
+            frameLen=int(rxbuffer[FRAME_LEN2])+FRAME_HEADER2+1
+            if frameLen<FRAME_LEN_MIN2:
+                frameError=4    # Error, frame must be longer! Invalid frame, must be discharged
+            elif len(rxbuffer)>=frameLen:
+                #length of frame is in the range
+                # compute and compare checksum
+                checksum(protocol, rxbuffer)
+                if logLevel>=LOG_DUMP:
+                    dump(protocol, rxbuffer,frameLen,"RX")
+                if (checksumValue == rxbuffer[frameLen-1]):
+                    #frame checksum is ok
+                    frameAddr=int(rxbuffer[3])*256+int(rxbuffer[4]) #sender
+                    dstAddr=int(rxbuffer[1])*256+int(rxbuffer[2])   #destination
+                    frameIdx=FRAME_HEADER2
+                    if (frameAddr!=0xffff and frameAddr not in modules): 
+                        # first time receive data from this module: ask for configuration?
+                        modules[frameAddr]=[int(time.time()),0,0,protocol,0]   #transmit now the output status
+                        #ask for port configuration?
+                        if rxbuffer[FRAME_HEADER2]!=CMD_CONFIG:
+                            txQueueAskConfig(protocol,frameAddr) #ask for configuration only if the device is not already sending configuration
+                    #broadcast or txQueue exists or txQueue just created
+                    frameError=0               
+                else:
+                    frameError=2    #2=checksum error
+            else:
+                # not enough data in rxBuffer
+                if frameLen<=FRAME_LEN_MAX or (rxbuffer[FRAME_HEADER2]==0x09 and rxbuffer[FRAME_HEADER2+1]==0xff):    # waiting for DomBus txConfig()
+                    frameError=3        #3=insufficient data
+                # else frameError=1 => invalid
+                    
+        if (frameError==0): #parse frame
+            while (frameIdx<frameLen-2):
+                cmd=rxbuffer[frameIdx]
+                cmdAck=cmd&CMD_ACK
+                portIdx=frameIdx+1
+                cmdLen=cmd&CMD_LEN_MASK
+                if (protocol!=1):
+                    cmdLen*=2
+                # check that cmdLen is not longer that rxBuffer[] length
+                if (portIdx+cmdLen)>len(rxbuffer):
+                    #error: frame has a valid checksum, a valid length, but it's strange that cmdLen is so long
+                    dump(protocol, rxbuffer,frameLen,"RXbad, invalid CMDLEN")
+                    rxbuffer.pop(0)
+                    Log(LOG_WARN,"Frame cmdLen error:"+str(frameLen)+" while len(rxbuffer)="+str(len(rxbuffer)))
+                    return
 
-            modules[frameAddr][LASTPROTOCOL]=protocol
-            modules[frameAddr][LASTRX]=int(time.time())
-            if (cmdAck):
-                # received an ack: remove cmd+arg1 from txQueue, if present
-                if (frameAddr!=0xffff):
-                    #Received ACK from a slave module
-                    txQueueRemove(frameAddr,cmd, port, arg1)
-                    modules[frameAddr][LASTRETRY]=0
-                if (cmd==CMD_CONFIG and dstAddr==0):
-                    if (port==0xfe):  # Version
-                        if (cmdLen>=8):
-                            strVersion=rxbuffer[portIdx+1:portIdx+5].decode()
-                            strModule=rxbuffer[portIdx+5:portIdx+cmdLen-1].decode()
-                            Log(LOG_INFO,"Module "+str(strModule)+" Rev."+str(strVersion)+" Addr="+hex(frameAddr))
-                            if (frameAddr in modules):
-                                modules[frameAddr][LASTSTATUS]=0    #force transmit output status
-                    elif ((port&0xf0)==0xf0):   #0xff or 0xf0, 0xf1, 0xf2, ...0xfd
-                        #0xff VERSION PORTTYPE PORTOPT PORTCAPABILITIES PORTIMAGE PORTNAME
-                        #arg1 contains the PORTTYPE_VERSION (to extend functionality in the future)
-                        portVer=arg1  #protocol version used to exchange information
-                        frameIdx=portIdx+2
-                        if (port==0xff):
-                            port=1        #port starts with 1
-                        else:
-                            port=arg2   # arg2 set the starting port number (needed to configure dombus devices with several ports)
-                            frameIdx+=1 # start from arg3
-                        while (frameIdx < frameLen-1): #scan all ports defined in the frame
-                            if (portVer==1):
-                                portType=int(rxbuffer[frameIdx])*256+int(rxbuffer[frameIdx+1])
-                                frameIdx+=2
-                                portOpt=int(rxbuffer[frameIdx])*256+int(rxbuffer[frameIdx+1])
-                                frameIdx+=2
-                                portCapabilities=int(rxbuffer[frameIdx])*256+int(rxbuffer[frameIdx+1]) #not needed, ignored
-                                frameIdx+=2
-                                portImage=int(rxbuffer[frameIdx]) #not used, ignored
-                                frameIdx+=1
+                cmd&=CMD_MASK
+                port=rxbuffer[portIdx]
+                arg1=rxbuffer[portIdx+1] if (cmdLen>=2) else 0 #port 
+                arg2=rxbuffer[portIdx+2] if (cmdLen>=3) else 0
+                arg3=rxbuffer[portIdx+3] if (cmdLen>=4) else 0
+                arg4=rxbuffer[portIdx+4] if (cmdLen>=5) else 0
+                arg5=rxbuffer[portIdx+5] if (cmdLen>=6) else 0
+                arg6=rxbuffer[portIdx+6] if (cmdLen>=7) else 0
+                arg7=rxbuffer[portIdx+7] if (cmdLen>=8) else 0
+                arg8=rxbuffer[portIdx+8] if (cmdLen>=9) else 0
+                arg9=rxbuffer[portIdx+9] if (cmdLen>=10) else 0
+                arg10=rxbuffer[portIdx+10] if (cmdLen>=11) else 0
+                arg11=rxbuffer[portIdx+11] if (cmdLen>=12) else 0
+                getDeviceID(frameAddr, port)
+
+                modules[frameAddr][LASTPROTOCOL]=protocol
+                modules[frameAddr][LASTRX]=int(time.time())
+                if (cmdAck):
+                    # received an ack: remove cmd+arg1 from txQueue, if present
+                    if (frameAddr!=0xffff):
+                        #Received ACK from a slave module
+                        txQueueRemove(frameAddr,cmd, port, arg1)
+                        modules[frameAddr][LASTRETRY]=0
+                    if (cmd==CMD_CONFIG and dstAddr==0):
+                        if (port==0xfe):  # Version
+                            if (cmdLen>=8):
+                                strVersion=rxbuffer[portIdx+1:portIdx+5].decode()
+                                strModule=rxbuffer[portIdx+5:portIdx+cmdLen-1].decode()
+                                Log(LOG_INFO,"Module "+str(strModule)+" Rev."+str(strVersion)+" Addr="+hex(frameAddr))
+                                if (frameAddr in modules):
+                                    modules[frameAddr][LASTSTATUS]=0    #force transmit output status
+                        elif ((port&0xf0)==0xf0):   #0xff or 0xf0, 0xf1, 0xf2, ...0xfd
+                            #0xff VERSION PORTTYPE PORTOPT PORTCAPABILITIES PORTIMAGE PORTNAME
+                            #arg1 contains the PORTTYPE_VERSION (to extend functionality in the future)
+                            portVer=arg1  #protocol version used to exchange information
+                            frameIdx=portIdx+2
+                            if (port==0xff):
+                                port=1        #port starts with 1
                             else:
-                                portType=(int(rxbuffer[frameIdx])<<24)+(int(rxbuffer[frameIdx+1])<<16)+(int(rxbuffer[frameIdx+2])<<8)+int(rxbuffer[frameIdx+3])
-                                frameIdx+=4
-                                portOpt=int(rxbuffer[frameIdx])*256+int(rxbuffer[frameIdx+1])
-                                frameIdx+=2
-                            portName=""
-                            getDeviceID(frameAddr, port)
-                            for i in range(0,16): #get the name associated to the current port
-                                ch=rxbuffer[frameIdx]
-                                frameIdx+=1
-                                if (ch==0):
-                                    break
+                                port=arg2   # arg2 set the starting port number (needed to configure dombus devices with several ports)
+                                frameIdx+=1 # start from arg3
+                            while (frameIdx < frameLen-1): #scan all ports defined in the frame
+                                if (portVer==1):
+                                    portType=int(rxbuffer[frameIdx])*256+int(rxbuffer[frameIdx+1])
+                                    frameIdx+=2
+                                    portOpt=int(rxbuffer[frameIdx])*256+int(rxbuffer[frameIdx+1])
+                                    frameIdx+=2
+                                    portCapabilities=int(rxbuffer[frameIdx])*256+int(rxbuffer[frameIdx+1]) #not needed, ignored
+                                    frameIdx+=2
+                                    portImage=int(rxbuffer[frameIdx]) #not used, ignored
+                                    frameIdx+=1
                                 else:
-                                    portName+=chr(ch)
-                            #check if this port device already exists?
-                            UnitFree=1  # first free unit in Devices[]
-                            found=0
-                            unit=getDeviceUnit(Devices,1) #1 means that it must scan all devices to find the right value of UnitFree
-                            #Log(LOG_DEBUG,"DeviceID="+deviceID+" frameAddr="+hex(frameAddr)+" portType="+hex(portType)+" unit="+hex(unit)+" UnitFree="+str(UnitFree))
-                            #check if frameAddr is in portsDisabled, and if the current port is disabled
-                            if ((deviceAddr not in portsDisabled or port not in portsDisabled[deviceAddr])):
-                                nValue=0
-                                sValue=''
-                                Used=0
-                                if (unit!=0xffff):
-                                    #unit found => remove TimedOut if set
-                                    if port==1:
-                                        Log(LOG_INFO,"Device "+devID+" is now active again")
-                                    Devices[unit].Update(nValue=Devices[unit].nValue, sValue=Devices[unit].sValue, TimedOut=0)
-                                else:
-                                    #port device not found, and is not disabled: create it!
-                                    #portType is the numeric number provided by DOMBUS
-                                    if (portType not in PORT_TYPENAME): portType=PORTTYPE_IN_DIGITAL   #default: Digital Input
-                                    if (UnitFree>255 or UnitFree<1):
-                                        Log(LOG_ERR,"Maximum number of devices is reached! Domoticz supports max 255 devices for each hardware.\nUse more serial ports to separate modules in more buses, or disable unused ports in this way:\nselect port 1 of a module, and write in the description DISABLE=3:4:5:11 to disable, for example, ports 3,4,5 and 11 of that module")
-                                        devicesFull=True
+                                    portType=(int(rxbuffer[frameIdx])<<24)+(int(rxbuffer[frameIdx+1])<<16)+(int(rxbuffer[frameIdx+2])<<8)+int(rxbuffer[frameIdx+3])
+                                    frameIdx+=4
+                                    portOpt=int(rxbuffer[frameIdx])*256+int(rxbuffer[frameIdx+1])
+                                    frameIdx+=2
+                                portName=""
+                                getDeviceID(frameAddr, port)
+                                for i in range(0,16): #get the name associated to the current port
+                                    ch=rxbuffer[frameIdx]
+                                    frameIdx+=1
+                                    if (ch==0):
+                                        break
                                     else:
-                                        devicesFull=False
-                                        descr='ID='+devID+','
-                                        for key, value in PORTTYPES.items():
-                                            if (value==portType):
-                                                descr+=key+","
-                                                break
-                                        for key,value in PORTOPTS.items():
-                                            if (value==portOpt):
-                                                #descr=descr+key+","
-                                                descr+=key+","
-                                        if (descr!=''):
-                                            descr=descr[:-1]    #remove last comma ,
+                                        portName+=chr(ch)
+                                #check if this port device already exists?
+                                UnitFree=1  # first free unit in Devices[]
+                                found=0
+                                unit=getDeviceUnit(Devices,1) #1 means that it must scan all devices to find the right value of UnitFree
+                                #Log(LOG_DEBUG,"DeviceID="+deviceID+" frameAddr="+hex(frameAddr)+" portType="+hex(portType)+" unit="+hex(unit)+" UnitFree="+str(UnitFree))
+                                #check if frameAddr is in portsDisabled, and if the current port is disabled
+                                if ((deviceAddr not in portsDisabled or port not in portsDisabled[deviceAddr])):
+                                    nValue=0
+                                    sValue=''
+                                    Used=0
+                                    if (unit!=0xffff):
+                                        #unit found => remove TimedOut if set
+                                        if port==1:
+                                            Log(LOG_INFO,"Device "+devID+" is now active again")
+                                        Devices[unit].Update(nValue=Devices[unit].nValue, sValue=Devices[unit].sValue, TimedOut=0)
+                                    else:
+                                        #port device not found, and is not disabled: create it!
+                                        #portType is the numeric number provided by DOMBUS
+                                        if (portType not in PORT_TYPENAME): portType=PORTTYPE_IN_DIGITAL   #default: Digital Input
+                                        if (UnitFree>255 or UnitFree<1):
+                                            Log(LOG_ERR,"Maximum number of devices is reached! Domoticz supports max 255 devices for each hardware.\nUse more serial ports to separate modules in more buses, or disable unused ports in this way:\nselect port 1 of a module, and write in the description DISABLE=3:4:5:11 to disable, for example, ports 3,4,5 and 11 of that module")
+                                            devicesFull=True
+                                        else:
+                                            devicesFull=False
+                                            descr='ID='+devID+','
+                                            for key, value in PORTTYPES.items():
+                                                if (value==portType):
+                                                    descr+=key+","
+                                                    break
+                                            for key,value in PORTOPTS.items():
+                                                if (value==portOpt):
+                                                    #descr=descr+key+","
+                                                    descr+=key+","
+                                            if (descr!=''):
+                                                descr=descr[:-1]    #remove last comma ,
 
-                                        if (portType!=PORTTYPE_CUSTOM or portOpt>=2):
-                                            # do not enable CUSTOM device with PORTOPT not specified (ignore it!)
-                                            typeName=PORT_TYPENAME[portType]
-                                            Options={}
-                                            Switchtype=''
-                                            if (portType==PORTTYPE_CUSTOM):
-                                                if (portOpt==PORTOPT_SELECTOR):
-                                                    typeName="Selector Switch"
+                                            if (portType!=PORTTYPE_CUSTOM or portOpt>=2):
+                                                # do not enable CUSTOM device with PORTOPT not specified (ignore it!)
+                                                typeName=PORT_TYPENAME[portType]
+                                                Options={}
+                                                Switchtype=''
+                                                if (portType==PORTTYPE_CUSTOM):
+                                                    if (portOpt==PORTOPT_SELECTOR):
+                                                        typeName="Selector Switch"
+                                                    elif (portOpt==PORTOPT_DIMMER):
+                                                        typeName="Dimmer"
+                                                    elif (portOpt==PORTOPT_ADDRESS):
+                                                        typeName="Text"
+                                                    elif (portOpt==PORTOPT_IMPORT_ENERGY or portOpt==PORTOPT_EXPORT_ENERGY):
+                                                        typeName="kWh"
+                                                        sValue="0;0"    #power,energy
+                                                        if ("Solar" in portName or "Exp" in portName):
+                                                            Switchtype=4   # Export energy
+                                                        if "EV Solar" in portName or "EV Grid" in portName or "Grid Power" in portName:
+                                                            Options["EnergyMeterMode"]="1"  #Energy computed by Domoticz
+                                                            Options["SignedWatt"]="1"       #Get 2 bytes signed data (16bit with MSB indicating the -)
+                                                    elif (portOpt==PORTOPT_VOLTAGE):
+                                                        typeName="Voltage"
+                                                    elif (portOpt==PORTOPT_POWER_FACTOR):
+                                                        typeName="Percentage"
+                                                        descr+=",A=0.1"
+                                                    elif (portOpt==PORTOPT_FREQUENCY):
+                                                        typeName="Custom"
+                                                        descr+=",A=0.01"
+                                                        Options['Custom']="1;Hz"
+                                                    descr+=",TypeName="+typeName
+                                                    Log(LOG_INFO,f"portName={portName}")
+                                                    if ("EV State" in portName):
+                                                        # create two sliders, one for min and one for max SoC
+    #                                                    Domoticz.Device(Name="EV BatteryMin", TypeName="Dimmer", Unit=UnitFree, Description="Battery level under which the EV is charged using energy from the grid. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
+    #                                                    Devices[UnitFree].Update(nValue=1, sValue="50", Used=1, Name="EV BatteryMin")
+    #                                                    unit=getDeviceUnit(Devices,1) # find another free Unit to create EVSE BatteryMax virtual device
+    #                                                    if (UnitFree!=0xffff):
+    #                                                        Domoticz.Device(Name="EV BatteryMax", TypeName="Dimmer", Unit=UnitFree, Description="When battery level is between min and max, only energy from reneable will be used. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
+    #                                                        Devices[UnitFree].Update(nValue=1, sValue="80", Used=1, Name="EV BatteryMax")
+    #                                                    unit=getDeviceUnit(Devices,1)   # find another free Unit to create EVSE CurrentMax virtual device
+    #                                                    if (UnitFree!=0xffff):
+    #                                                        Options["LevelNames"]="0|8|12|16|20|24|28|32|36"
+    #                                                        Log(LOG_INFO,f"MaxCurrent Options={Options}")
+    #                                                        Domoticz.Device(Name="EV CurrentMax", TypeName="Selector Switch", Unit=UnitFree, Description="Maximum charging current. This virtual device is used by script_event_power.lua (@CreasolTech on github)", Options=Options).Create()
+    #                                                        Devices[UnitFree].Update(nValue=1, sValue="80", Used=1)
+    #                                                    unit=getDeviceUnit(Devices,1)
+    #                                                    #ToDo: if UnitFree>255 => no space in Devices[] table for a new device
+                                                        Options={"LevelNames": "0|Dis|Con|Ch|Vent|AEV|APO|AW", "LevelActions": "", "LevelOffHidden": "True", "SelectorStyle": "0"}
+                                                        typeName="Selector Switch"
+                                                        sValue="0"
+                                                    elif ("EV Mode" in portName):   #Off, Solar, 50%, 75%, 100%, Managed
+                                                        Options={"LevelNames": "Off|Solar|25%|50%|75%|100%|Man", "LevelActions": "", "LevelOffHidden": "False", "SelectorStyle": "0"}
+                                                        typeName="Selector Switch"
+                                                        setMaxCurrent=16
+                                                        setMaxPower=3300
+                                                        setStartPower=1200
+                                                        setStopTime=90
+                                                        setAutoStart=1
+                                                        descr+=f",EVMAXCURRENT={setMaxCurrent},EVMAXPOWER={setMaxPower},EVSTARTPOWER={setStartPower},EVSTOPTIME={setStopTime},EVAUTOSTART={setAutoStart}"
+                                                        nValue=0
+                                                        sValue="0"
+                                                        # Configure 
+                                                        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, 0, (setMaxCurrent&0xff)], TX_RETRY,0) 
+                                                        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET2, ((setMaxPower>>8)&0xff), (setMaxPower&0xff)], TX_RETRY,0) 
+                                                        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET3, ((setStartPower>>8)&0xff), (setStartPower&0xff)], TX_RETRY,0) 
+                                                        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET4, ((setStopTime>>8)&0xff), (setStopTime&0xff)], TX_RETRY,0) 
+                                                        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET5, ((setAutoStart>>8)&0xff), (setAutoStart&0xff)], TX_RETRY,0) 
                                                 elif (portOpt==PORTOPT_DIMMER):
                                                     typeName="Dimmer"
-                                                elif (portOpt==PORTOPT_ADDRESS):
-                                                    typeName="Text"
-                                                elif (portOpt==PORTOPT_IMPORT_ENERGY or portOpt==PORTOPT_EXPORT_ENERGY):
-                                                    typeName="kWh"
-                                                    sValue="0;0"    #power,energy
-                                                    if ("Solar" in portName or "Exp" in portName):
-                                                        Switchtype=4   # Export energy
-                                                    if "EV Solar" in portName or "EV Grid" in portName or "Grid Power" in portName:
-                                                        Options["EnergyMeterMode"]="1"  #Energy computed by Domoticz
-                                                        Options["SignedWatt"]="1"       #Get 2 bytes signed data (16bit with MSB indicating the -)
-                                                elif (portOpt==PORTOPT_VOLTAGE):
-                                                    typeName="Voltage"
-                                                elif (portOpt==PORTOPT_POWER_FACTOR):
-                                                    typeName="Percentage"
-                                                    descr+=",A=0.1"
-                                                elif (portOpt==PORTOPT_FREQUENCY):
-                                                    typeName="Custom"
-                                                    descr+=",A=0.01"
-                                                    Options['Custom']="1;Hz"
-                                                descr+=",TypeName="+typeName
-                                                Log(LOG_INFO,f"portName={portName}")
-                                                if ("EV State" in portName):
-                                                    # create two sliders, one for min and one for max SoC
-#                                                    Domoticz.Device(Name="EV BatteryMin", TypeName="Dimmer", Unit=UnitFree, Description="Battery level under which the EV is charged using energy from the grid. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
-#                                                    Devices[UnitFree].Update(nValue=1, sValue="50", Used=1, Name="EV BatteryMin")
-#                                                    unit=getDeviceUnit(Devices,1) # find another free Unit to create EVSE BatteryMax virtual device
-#                                                    if (UnitFree!=0xffff):
-#                                                        Domoticz.Device(Name="EV BatteryMax", TypeName="Dimmer", Unit=UnitFree, Description="When battery level is between min and max, only energy from reneable will be used. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
-#                                                        Devices[UnitFree].Update(nValue=1, sValue="80", Used=1, Name="EV BatteryMax")
-#                                                    unit=getDeviceUnit(Devices,1)   # find another free Unit to create EVSE CurrentMax virtual device
-#                                                    if (UnitFree!=0xffff):
-#                                                        Options["LevelNames"]="0|8|12|16|20|24|28|32|36"
-#                                                        Log(LOG_INFO,f"MaxCurrent Options={Options}")
-#                                                        Domoticz.Device(Name="EV CurrentMax", TypeName="Selector Switch", Unit=UnitFree, Description="Maximum charging current. This virtual device is used by script_event_power.lua (@CreasolTech on github)", Options=Options).Create()
-#                                                        Devices[UnitFree].Update(nValue=1, sValue="80", Used=1)
-#                                                    unit=getDeviceUnit(Devices,1)
-#                                                    #ToDo: if UnitFree>255 => no space in Devices[] table for a new device
-                                                    Options={"LevelNames": "0|Dis|Con|Ch|Vent|AEV|APO|AW", "LevelActions": "", "LevelOffHidden": "True", "SelectorStyle": "0"}
-                                                    typeName="Selector Switch"
-                                                    sValue="0"
-                                                elif ("EV Mode" in portName):   #Off, Solar, 50%, 75%, 100%, Managed
-                                                    Options={"LevelNames": "Off|Solar|25%|50%|75%|100%|Man", "LevelActions": "", "LevelOffHidden": "False", "SelectorStyle": "0"}
-                                                    typeName="Selector Switch"
-                                                    setMaxCurrent=16
-                                                    setMaxPower=3300
-                                                    setStartPower=1200
-                                                    setStopTime=90
-                                                    setAutoStart=1
-                                                    descr+=f",EVMAXCURRENT={setMaxCurrent},EVMAXPOWER={setMaxPower},EVSTARTPOWER={setStartPower},EVSTOPTIME={setStopTime},EVAUTOSTART={setAutoStart}"
-                                                    nValue=0
-                                                    sValue="0"
-                                                    # Configure 
-                                                    txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, 0, (setMaxCurrent&0xff)], TX_RETRY,0) 
-                                                    txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET2, ((setMaxPower>>8)&0xff), (setMaxPower&0xff)], TX_RETRY,0) 
-                                                    txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET3, ((setStartPower>>8)&0xff), (setStartPower&0xff)], TX_RETRY,0) 
-                                                    txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET4, ((setStopTime>>8)&0xff), (setStopTime&0xff)], TX_RETRY,0) 
-                                                    txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET5, ((setAutoStart>>8)&0xff), (setAutoStart&0xff)], TX_RETRY,0) 
-                                            elif (portOpt==PORTOPT_DIMMER):
-                                                typeName="Dimmer"
-                                                Log(LOG_INFO,f"DIMMER, portName={portName}")
-                                                #if "EVSE Current" in portName:
-                                                    # Options={"MaxDimLevel": "32"}    #Max 32A : not implemented in python plugin
-                                                    # Log(LOG_INFO,f"portName contains EVSE Current, Options={Options}")
-                                            elif (portType==PORTTYPE_IN_COUNTER):
-                                                # counter or kWh ?
-                                                if "POWER" in portName.upper():
-                                                    typeName="kWh"
-                                                    sValue="0;0"
+                                                    Log(LOG_INFO,f"DIMMER, portName={portName}")
+                                                    #if "EVSE Current" in portName:
+                                                        # Options={"MaxDimLevel": "32"}    #Max 32A : not implemented in python plugin
+                                                        # Log(LOG_INFO,f"portName contains EVSE Current, Options={Options}")
+                                                elif portType==PORTTYPE_IN_TWINBUTTON:
+                                                    if "LevelNames" not in Options:
+                                                        Options["LevelNames"]="Off|Down|Up"
+                                                elif portType==PORTTYPE_OUT_BLIND:
+                                                    if "LevelNames" not in Options:
+                                                        Options["LevelNames"]="Stop|Down|Up"
+                                                elif portType==PORTTYPE_OUT_BUZZER:  # or PORTTYPE_OUT_FLASH, that has the same value
+                                                    if "LevelNames" not in Options:
+                                                        Options["LevelNames"]="Off|1|2|3|4|5"
+                                                elif portType==PORTTYPE_IN_COUNTER:
+                                                    # counter or kWh ?
+                                                    if "POWER" in portName.upper():
+                                                        typeName="kWh"
+                                                        sValue="0;0"
 
-                                        Log(LOG_INFO,"Add device "+deviceID+" deviceAddr="+deviceAddr+": "+portName+" portType="+hex(portType)+" portOpt="+str(portOpt)+" Description="+descr)
-                                        Log(LOG_INFO,"Name=("+devID+") "+portName+", TypeName="+typeName+", DeviceID="+deviceID+", Unit="+str(UnitFree)+" ,Options="+str(Options))
-                                        if (Switchtype!=''): 
-                                            Domoticz.Device(Name="("+devID+") "+portName, TypeName=typeName, Switchtype=Switchtype, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
-                                        else:
-                                            Domoticz.Device(Name="("+devID+") "+portName, TypeName=typeName, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
-                                        if frameAddr<=0xff00 or port==1:
-                                            Used=1
-                                        Devices[UnitFree].Update(nValue=nValue, sValue=sValue, Used=Used)   # do not enable devices with default address
-                            port+=1;
+                                            Log(LOG_INFO,"Add device "+deviceID+" deviceAddr="+deviceAddr+": "+portName+" portType="+hex(portType)+" portOpt="+str(portOpt)+" Description="+descr)
+                                            Log(LOG_INFO,"Name=("+devID+") "+portName+", TypeName="+typeName+", DeviceID="+deviceID+", Unit="+str(UnitFree)+" ,Options="+str(Options))
+                                            if (Switchtype!=''): 
+                                                Domoticz.Device(Name="("+devID+") "+portName, TypeName=typeName, Switchtype=Switchtype, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
+                                            else:
+                                                Domoticz.Device(Name="("+devID+") "+portName, TypeName=typeName, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
+                                            if frameAddr<=0xff00 or port==1:
+                                                Used=1
+                                            Devices[UnitFree].Update(nValue=nValue, sValue=sValue, Used=Used)   # do not enable devices with default address
+                                port+=1;
 
-                #TODO elif (cmd==CMD_DCMD): #decode DCMD frame to get the STATUS word?
-            else:
-                #cmdAck==0 => decode command from slave module
-                if (frameAddr!=0xffff and dstAddr==0):
-                    #Receive command from a slave module
-                    getDeviceID(frameAddr,port)
-                    if (cmd==CMD_CONFIG): 
-                        if ((port&0xf0)==0xe0): #send text to the log file: port incremented at each transmission
-                            Log(LOG_INFO,f"Msg #{port&15} from {devID}: {rxbuffer[portIdx+1:portIdx+cmdLen].decode()}")
-                            if (frameAddr in modules):
-                                modules[frameAddr][LASTSTATUS]=0    #force transmit output status
-                            txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
-                    elif (cmd==CMD_GET): 
-                        if (port==0): #port==0 => request from module to get status of all output!  NOT USED by any module, actually
-                            txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)   #tx ack
-                            if (frameAddr in modules):
-                                modules[frameAddr][LASTSTATUS]=0    #force transmit output status
-                        else: # port specified: return status for that port
-                            unit=getDeviceUnit(Devices,0)
-                            if (unit!=0xffff):
-                                d=Devices[unit]
-                                if (d.Type==244):
-                                    if (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
-                                        if (any(i.isdigit() for i in d.sValue)==False):
-                                            arg1=0
-                                            d.Update(nValue=0, sValue="0")
-                                        else:
+                    #TODO elif (cmd==CMD_DCMD): #decode DCMD frame to get the STATUS word?
+                else:
+                    #cmdAck==0 => decode command from slave module
+                    if (frameAddr!=0xffff and dstAddr==0):
+                        #Receive command from a slave module
+                        getDeviceID(frameAddr,port)
+                        if (cmd==CMD_CONFIG): 
+                            if ((port&0xf0)==0xe0): #send text to the log file: port incremented at each transmission
+                                Log(LOG_INFO,f"Msg #{port&15} from {devID}: {rxbuffer[portIdx+1:portIdx+cmdLen].decode()}")
+                                if (frameAddr in modules):
+                                    modules[frameAddr][LASTSTATUS]=0    #force transmit output status
+                                txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
+                        elif (cmd==CMD_GET): 
+                            if (port==0): #port==0 => request from module to get status of all output!  NOT USED by any module, actually
+                                txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)   #tx ack
+                                if (frameAddr in modules):
+                                    modules[frameAddr][LASTSTATUS]=0    #force transmit output status
+                            else: # port specified: return status for that port
+                                unit=getDeviceUnit(Devices,0)
+                                if (unit!=0xffff):
+                                    d=Devices[unit]
+                                    if (d.Type==244):
+                                        if (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
+                                            if (any(i.isdigit() for i in d.sValue)==False):
+                                                arg1=0
+                                                d.Update(nValue=0, sValue="0")
+                                            else:
+                                                arg1=int(d.sValue)
+                                        elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
                                             arg1=int(d.sValue)
-                                    elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-                                        arg1=int(d.sValue)
-                                    else:   
-                                        arg1=d.nValue
+                                        else:   
+                                            arg1=d.nValue
 
+                                        txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
+
+                        elif (cmd==CMD_SET):
+                            #digital or analog input changed?
+                            UnitFree=1
+                            unit=getDeviceUnit(Devices,0)
+                            if (unit==0xffff):
+                                if ((deviceAddr not in portsDisabled or port not in portsDisabled[deviceAddr])):
+                                    #got a frame from a unknown device, that is not disabled => ask for configuration
+                                    #Log(LOG_DEBUG,"Device="+devID+" portsDisabled["+str(deviceAddr)+"]="+portsDisabled[deviceAddr]+" => Ask config")
+                                    txQueueAskConfig(protocol,frameAddr)
+                                else:
+                                    # ports is disabled => send ACK anyway, to prevent useless retries
+                                    #Log(LOG_DEBUG,"Send ACK even if port "+str(port)+" is disabled")
                                     txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
 
-                    elif (cmd==CMD_SET):
-                        #digital or analog input changed?
-                        UnitFree=1
-                        unit=getDeviceUnit(Devices,0)
-                        if (unit==0xffff):
-                            if ((deviceAddr not in portsDisabled or port not in portsDisabled[deviceAddr])):
-                                #got a frame from a unknown device, that is not disabled => ask for configuration
-                                #Log(LOG_DEBUG,"Device="+devID+" portsDisabled["+str(deviceAddr)+"]="+portsDisabled[deviceAddr]+" => Ask config")
-                                txQueueAskConfig(protocol,frameAddr)
                             else:
-                                # ports is disabled => send ACK anyway, to prevent useless retries
-                                #Log(LOG_DEBUG,"Send ACK even if port "+str(port)+" is disabled")
-                                txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
-
-                        else:
-                            d=Devices[unit]
-                            #got a frame from a well known device
-                            getDeviceID(frameAddr,port)
-                            if (cmdLen==2):
-                                stringval='Off' if arg1==0 else 'On'
-                                #update device only if was changed
-                                #Log(LOG_DEBUG,"devID="+devID+" d.Type="+str(d.Type)+" d.SwitchType="+str(d.SwitchType)+" nValue="+str(arg1)+" sValue="+str(arg1))
-                                if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
-                                    if (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
-                                        d.Update(nValue=int(arg1), sValue=str(arg1))
-                                    elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-                                        nValue=0 if arg1==0 else 1
-                                        d.Update(nValue=nValue, sValue=str(arg1))
-                                    else: #normal switch
-                                        if (d.nValue!=int(arg1) or d.sValue!=stringval):
-                                            d.Update(nValue=int(arg1), sValue=stringval)
-                                elif (d.Type==243):
-                                    if (d.SubType==28): #Incremental counter
-                                        if (arg1>0):
-                                            d.Update(nValue=0, sValue=str(arg1));
-                                    elif (d.SubType==29): #kWh
-                                        if (arg1==0):
-                                            # just update the current value, to avoid bad charts
-                                            d.Update(nValue=d.nValue, sValue=d.svalue)
+                                d=Devices[unit]
+                                #got a frame from a well known device
+                                getDeviceID(frameAddr,port)
+                                if (cmdLen==2):
+                                    stringval='Off' if arg1==0 else 'On'
+                                    #update device only if was changed
+                                    #Log(LOG_DEBUG,"devID="+devID+" d.Type="+str(d.Type)+" d.SwitchType="+str(d.SwitchType)+" nValue="+str(arg1)+" sValue="+str(arg1))
+                                    if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
+                                        if (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
+                                            d.Update(nValue=int(arg1), sValue=str(arg1))
+                                        elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
+                                            nValue=0 if arg1==0 else 1
+                                            d.Update(nValue=nValue, sValue=str(arg1))
+                                        else: #normal switch
+                                            if (d.nValue!=int(arg1) or d.sValue!=stringval):
+                                                d.Update(nValue=int(arg1), sValue=stringval)
+                                    elif (d.Type==243):
+                                        if (d.SubType==28): #Incremental counter
+                                            if (arg1>0):
+                                                d.Update(nValue=0, sValue=str(arg1));
+                                        elif (d.SubType==29): #kWh
+                                            if (arg1==0):
+                                                # just update the current value, to avoid bad charts
+                                                d.Update(nValue=d.nValue, sValue=d.svalue)
+                                            else:
+                                                sv=d.sValue.split(';')  #sv[0]=POWER, sv[1]=COUNTER
+                                                divider=1000    # default divider value
+                                                if ("divider" in d.Options):
+                                                    divider=int(float(d.Options['divider']))
+                                                    if (divider==0): 
+                                                        divider=1000
+                                                if (len(sv)!=2): 
+                                                    sv[0]="0" #power
+                                                    sv.append("0") #counter
+                                                p=int(float(sv[0]))
+                                                energy=float(sv[1])+arg1*1000/divider  #total energy in Wh
+                                                ms=int(time.time()*1000)
+                                                # check that counterTime[d.Unit] exists: used to set the last time a pulse was received. 
+                                                # Althought it's possible to save data into d.Options, it's much better to have a dict so it's possible to periodically check all counterTime
+                                                if (d.Unit not in counterTime):
+                                                    counterTime[d.Unit]=0
+                                                msdiff=ms-counterTime[d.Unit] #elapsed time since last value
+                                                if (msdiff>=4000): #check that frames do not come too fast (Domoticz was busy with database backup??). Dombus tx period >= 5000ms
+                                                    power=int(arg1*3600000000/(msdiff*divider))
+                                                else:
+                                                    #frame received close to the previous one => ignore power computation
+                                                    power=p    
+                                                counterTime[d.Unit]=ms
+                                                svalue=str(power)+';'+str(energy)
+                                                Log(LOG_INFO,"kWh meter: count="+str(arg1)+" sValue="+svalue+" Name="+d.Name)
+                                                d.Update(nValue=0, sValue=svalue)
+                                                if ('opposite' in d.Options):
+                                                    #opposite = Unit of the opposite kWh counter, so if that counter exists, set it to 0 power
+                                                    opposite=int(d.Options['opposite'])
+                                                    if (opposite in Devices and Devices[opposite].Type==243 and Devices[opposite].SubType==29):
+                                                        #opposite device exists and it's a kWh counter
+                                                        sv=Devices[opposite].sValue.split(';')
+                                                        p=int(float(sv[0]))
+                                                        energy=float(sv[1])
+                                                        if (p!=0):
+                                                            Devices[opposite].Update(nValue=0, sValue="0;"+str(energy))
+                                    else:
+                                        #device is not a switch, or has not the SwitchType attribute
+                                        Log(LOG_DEBUG,"Ignore SET command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
+        
+                                    #send ack
+                                    txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
+                                elif (cmdLen==3 or cmdLen==4):
+                                    #analog value, distance, temperature, humidity, watt
+                                    value=arg1*256+arg2
+                                    if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP]):
+                                        if 'function' in d.Options:
+                                            Ro=10000
+                                            To=25.0
+                                            temp=0  #default
+                                            if (d.Options['function']=='3950'):
+                                                #value=0..65535
+                                                beta=3950
+                                                if (value==65535): value=65534  #Avoid division by zero
+                                                r=value*Ro/(65535-value)
+                                                temp=math.log(r / Ro) / beta      # log(R/Ro) / beta
+                                                temp+=1.0/(To + 273.15)
+                                                temp=round((1.0/temp)-273.15, 2)
                                         else:
+                                            temp=round(value/10.0-273.1,2)
+                                            #Log(LOG_DEBUG,"Temperature: value="+str(value)+" temp="+str(temp)) 
+
+                                        # compute the averaged temperature and save it in d.Options[]
+                                        if 'avgTemp' in d.Options:
+                                            avgTemp=d.Options['avgTemp']
+                                        else:
+                                            avgTemp=25
+                                        #Log(LOG_DEBUG,"temp="+str(temp)+" avgTemp="+str(avgTemp))
+                                        if abs(avgTemp-temp)<1:
+                                            temp=(avgTemp*5+temp)/6
+                                            #Log(LOG_DEBUG,"tempDiff<1 => temp=(avgTemp*5+temp)/6="+str(temp))
+                                        d.Options['avgTemp']=round(temp,2)   #save current avg value, with 2 digit precision
+
+                                        #Now manage A and B
+                                        v=getOpt(d,"B=")
+                                        b=float(v) if (v!="false") else 0
+                                        temp=round(temp+b, 1)
+                                        if (temp>-50 and d.sValue!=str(temp)):
+                                            d.Update(nValue=int(temp), sValue=str(temp))
+                                    elif (d.Type==PORTTYPE[PORTTYPE_SENSOR_HUM]):
+                                        hum=int(value/10)
+                                        if (hum>5 and d.nValue!=hum):
+                                            d.Update(nValue=hum, sValue=HRstatus(hum))
+                                    elif (d.Type==243): #distance, voltage, frequency, power factor, watt, ...
+                                        if (d.SubType==29): #kWh => signed power
+                                            Value=value
+                                            if (value&0x8000): Value=value-65536
+                                        else:
+                                            #extract A and B, if defined, to compute the right value VALUE=A*dombus_value+B
+                                            v=getOpt(d,"A=")
+                                            a=float(v) if (v!="false") else 1
+                                            v=getOpt(d,"B=")
+                                            b=float(v) if (v!="false") else 0
+                                            Value=a*value+b
+                                        if (d.sValue!=str(Value)):
+                                            d.Update(nValue=int(Value), sValue=str(Value))
+                                        #Log(LOG_DEBUG,"Value="+str(a)+"*"+str(value)+"+"+str(b)+"="+str(Value))
+                                    #txQueueAdd(protocol, frameAddr,CMD_SET,3,CMD_ACK,port,[arg1,arg2,arg3],1,1)
+                                    txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                                elif (cmdLen==5 or cmdLen==6):
+                                    value=arg1*256+arg2
+                                    value2=arg3*256+arg4
+                                    #temp+hum?
+                                    if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP_HUM]):
+                                        temp=round(value/10.0-273.1,1)
+                                        hum=int(value2/10)
+                                        stringval=str(float(temp))+";"+str(hum)+";"+HRstatus(hum) 
+                                        #Log(LOG_DEBUG,"TEMP_HUM: nValue="+str(temp)+" sValue="+stringval)
+                                        if (temp>-50 and hum>5 and d.sValue!=stringval):
+                                            d.Update(nValue=int(temp), sValue=stringval)
+                                        #txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
+                                        txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                                    elif (d.Type==243):
+                                        power=0 #default: set power=0
+                                        #counter: value=newcountvalue, value2=oldcountvalue, arg5=0
+                                        counter=value-value2
+                                        if (counter<0): #16bit overflow
+                                            counter+=65536;
+                                        if d.Unit not in counterOld:
+                                            counterOld[d.Unit]=0
+                                        value_minus_old=value-counterOld[d.Unit]
+                                        if (value_minus_old<0):     #16bit overflow
+                                            value_minus_old+=65536
+                                        old_minus_value2=counterOld[d.Unit]-value2
+                                        if (old_minus_value2<0):     #16bit overflow
+                                            old_minus_value2+=65536
+
+                                        if d.Unit in counterOld and counterOld[d.Unit]!=0 and old_minus_value2<1000 and value2!=0:
+                                            counter=value_minus_old # value - counterOld[d.Unit] +65536 if overflow
+                                            power=counter
+                                            # Log(LOG_DEBUG,"Counter: counter in sync =>  Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
+                                        elif counter != 0:  # show warning only if this counter is running. If it's not connected to anything, ignore it
+                                            Log(LOG_WARN,"Counter: counterOld NOT in sync! Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
+                                        counterOld[d.Unit]=value
+                                        if (d.SubType==28): #Incremental counter
+                                            if (counter>0):
+                                                d.Update(nValue=0, sValue=str(counter));
+                                        elif (d.SubType==29): #kWh
+    ###                                        if (counter>0):
                                             sv=d.sValue.split(';')  #sv[0]=POWER, sv[1]=COUNTER
                                             divider=1000    # default divider value
                                             if ("divider" in d.Options):
@@ -1270,10 +1495,11 @@ def decode(Devices):
                                                 if (divider==0): 
                                                     divider=1000
                                             if (len(sv)!=2): 
+                                                Log(LOG_INFO,"Counter kWh: sValue has not 2 items: Name="+d.Name+" sValue="+str(d.sValue)+" len(sv)="+str(len(sv)))
                                                 sv[0]="0" #power
                                                 sv.append("0") #counter
                                             p=int(float(sv[0]))
-                                            energy=float(sv[1])+arg1*1000/divider  #total energy in Wh
+                                            energy=float(sv[1])+counter*1000/divider  #total energy in Wh
                                             ms=int(time.time()*1000)
                                             # check that counterTime[d.Unit] exists: used to set the last time a pulse was received. 
                                             # Althought it's possible to save data into d.Options, it's much better to have a dict so it's possible to periodically check all counterTime
@@ -1281,13 +1507,15 @@ def decode(Devices):
                                                 counterTime[d.Unit]=0
                                             msdiff=ms-counterTime[d.Unit] #elapsed time since last value
                                             if (msdiff>=4000): #check that frames do not come too fast (Domoticz was busy with database backup??). Dombus tx period >= 5000ms
-                                                power=int(arg1*3600000000/(msdiff*divider))
+                                                power=int(power*3600000000/(msdiff*divider))
                                             else:
                                                 #frame received close to the previous one => ignore power computation
-                                                power=p    
+                                                power=p
+                                            if (energy-float(sv[1])) > 16:
+                                                Log(LOG_WARN,"Counter kWh: > 16Wh increment!!!  Name="+d.Name+" sValueOld="+d.sValue+" sv[0]="+str(sv[0])+" sv[1]="+str(sv[1])+" counter="+str(counter)+" divider="+str(divider)+" energyNow="+str(energy)+" msdiff="+str(msdiff))
                                             counterTime[d.Unit]=ms
                                             svalue=str(power)+';'+str(energy)
-                                            Log(LOG_INFO,"kWh meter: count="+str(arg1)+" sValue="+svalue+" Name="+d.Name)
+                                            # Log(LOG_DEBUG,"Counter kWh:  Name="+d.Name+" count="+str(counter)+" sValue="+svalue+" Name="+d.Name)
                                             d.Update(nValue=0, sValue=svalue)
                                             if ('opposite' in d.Options):
                                                 #opposite = Unit of the opposite kWh counter, so if that counter exists, set it to 0 power
@@ -1299,204 +1527,66 @@ def decode(Devices):
                                                     energy=float(sv[1])
                                                     if (p!=0):
                                                         Devices[opposite].Update(nValue=0, sValue="0;"+str(energy))
-                                else:
-                                    #device is not a switch, or has not the SwitchType attribute
-                                    Log(LOG_DEBUG,"Ignore SET command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
-    
-                                #send ack
-                                txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
-                            elif (cmdLen==3 or cmdLen==4):
-                                #analog value, distance, temperature, humidity, watt
-                                value=arg1*256+arg2
-                                if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP]):
-                                    if 'function' in d.Options:
-                                        Ro=10000
-                                        To=25.0
-                                        temp=0  #default
-                                        if (d.Options['function']=='3950'):
-                                            #value=0..65535
-                                            beta=3950
-                                            if (value==65535): value=65534  #Avoid division by zero
-                                            r=value*Ro/(65535-value)
-                                            temp=math.log(r / Ro) / beta      # log(R/Ro) / beta
-                                            temp+=1.0/(To + 273.15)
-                                            temp=round((1.0/temp)-273.15, 2)
-                                    else:
-                                        temp=round(value/10.0-273.1,2)
-                                        #Log(LOG_DEBUG,"Temperature: value="+str(value)+" temp="+str(temp)) 
-
-                                    # compute the averaged temperature and save it in d.Options[]
-                                    if 'avgTemp' in d.Options:
-                                        avgTemp=d.Options['avgTemp']
-                                    else:
-                                        avgTemp=25
-                                    Log(LOG_DEBUG,"temp="+str(temp)+" avgTemp="+str(avgTemp))
-                                    if abs(avgTemp-temp)<1:
-                                        temp=(avgTemp*5+temp)/6
-                                        Log(LOG_DEBUG,"tempDiff<1 => temp=(avgTemp*5+temp)/6="+str(temp))
-                                    d.Options['avgTemp']=round(temp,2)   #save current avg value, with 2 digit precision
-
-                                    #Now manage A and B
-                                    v=getOpt(d,"B=")
-                                    b=float(v) if (v!="false") else 0
-                                    temp=round(temp+b, 1)
-                                    if (temp>-50 and d.sValue!=str(temp)):
-                                        d.Update(nValue=int(temp), sValue=str(temp))
-                                elif (d.Type==PORTTYPE[PORTTYPE_SENSOR_HUM]):
-                                    hum=int(value/10)
-                                    if (hum>5 and d.nValue!=hum):
-                                        d.Update(nValue=hum, sValue=HRstatus(hum))
-                                elif (d.Type==243): #distance, voltage, frequency, power factor, watt, ...
-                                    if (d.SubType==29): #kWh => signed power
-                                        Value=value
-                                        if (value&0x8000): Value=value-65536
-                                    else:
-                                        #extract A and B, if defined, to compute the right value VALUE=A*dombus_value+B
-                                        v=getOpt(d,"A=")
-                                        a=float(v) if (v!="false") else 1
-                                        v=getOpt(d,"B=")
-                                        b=float(v) if (v!="false") else 0
-                                        Value=a*value+b
-                                    if (d.sValue!=str(Value)):
-                                        d.Update(nValue=int(Value), sValue=str(Value))
-                                    #Log(LOG_DEBUG,"Value="+str(a)+"*"+str(value)+"+"+str(b)+"="+str(Value))
-                                #txQueueAdd(protocol, frameAddr,CMD_SET,3,CMD_ACK,port,[arg1,arg2,arg3],1,1)
-                                txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
-                            elif (cmdLen==5 or cmdLen==6):
-                                value=arg1*256+arg2
-                                value2=arg3*256+arg4
-                                #temp+hum?
-                                if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP_HUM]):
-                                    temp=round(value/10.0-273.1,1)
-                                    hum=int(value2/10)
-                                    stringval=str(float(temp))+";"+str(hum)+";"+HRstatus(hum) 
-                                    #Log(LOG_DEBUG,"TEMP_HUM: nValue="+str(temp)+" sValue="+stringval)
-                                    if (temp>-50 and hum>5 and d.sValue!=stringval):
-                                        d.Update(nValue=int(temp), sValue=stringval)
                                     #txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
                                     txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
-                                elif (d.Type==243):
-                                    power=0 #default: set power=0
-                                    #counter: value=newcountvalue, value2=oldcountvalue, arg5=0
-                                    counter=value-value2
-                                    if (counter<0): #16bit overflow
-                                        counter+=65536;
-                                    if d.Unit not in counterOld:
-                                        counterOld[d.Unit]=0
-                                    value_minus_old=value-counterOld[d.Unit]
-                                    if (value_minus_old<0):     #16bit overflow
-                                        value_minus_old+=65536
-                                    old_minus_value2=counterOld[d.Unit]-value2
-                                    if (old_minus_value2<0):     #16bit overflow
-                                        old_minus_value2+=65536
-
-                                    if d.Unit in counterOld and counterOld[d.Unit]!=0 and old_minus_value2<1000 and value2!=0:
-                                        counter=value_minus_old # value - counterOld[d.Unit] +65536 if overflow
-                                        power=counter
-                                        # Log(LOG_DEBUG,"Counter: counter in sync =>  Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
-                                    elif counter != 0:  # show warning only if this counter is running. If it's not connected to anything, ignore it
-                                        Log(LOG_WARN,"Counter: counterOld NOT in sync! Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
-                                    counterOld[d.Unit]=value
-                                    if (d.SubType==28): #Incremental counter
-                                        if (counter>0):
-                                            d.Update(nValue=0, sValue=str(counter));
-                                    elif (d.SubType==29): #kWh
-###                                        if (counter>0):
-                                        sv=d.sValue.split(';')  #sv[0]=POWER, sv[1]=COUNTER
-                                        divider=1000    # default divider value
-                                        if ("divider" in d.Options):
-                                            divider=int(float(d.Options['divider']))
-                                            if (divider==0): 
-                                                divider=1000
-                                        if (len(sv)!=2): 
-                                            Log(LOG_INFO,"Counter kWh: sValue has not 2 items: Name="+d.Name+" sValue="+str(d.sValue)+" len(sv)="+str(len(sv)))
-                                            sv[0]="0" #power
-                                            sv.append("0") #counter
-                                        p=int(float(sv[0]))
-                                        energy=float(sv[1])+counter*1000/divider  #total energy in Wh
-                                        ms=int(time.time()*1000)
-                                        # check that counterTime[d.Unit] exists: used to set the last time a pulse was received. 
-                                        # Althought it's possible to save data into d.Options, it's much better to have a dict so it's possible to periodically check all counterTime
-                                        if (d.Unit not in counterTime):
-                                            counterTime[d.Unit]=0
-                                        msdiff=ms-counterTime[d.Unit] #elapsed time since last value
-                                        if (msdiff>=4000): #check that frames do not come too fast (Domoticz was busy with database backup??). Dombus tx period >= 5000ms
-                                            power=int(power*3600000000/(msdiff*divider))
+                                elif (cmdLen==7 or cmdLen==8):
+                                    # transmitted power (int16) + energy (uint32)
+                                    value=(arg1<<8) + arg2
+                                    value2=(arg3<<24) + (arg4<<16) + (arg5<<8) + arg6
+                                    #kWh?
+                                    if (d.Type==243 and d.SubType==29): #kWh
+                                        #value=Watt, signed
+                                        #value2=N*10Wh
+                                        if (value&0x8000):
+                                            power=value-65536
                                         else:
-                                            #frame received close to the previous one => ignore power computation
-                                            power=p
-                                        if (energy-float(sv[1])) > 16:
-                                            Log(LOG_WARN,"Counter kWh: > 16Wh increment!!!  Name="+d.Name+" sValueOld="+d.sValue+" sv[0]="+str(sv[0])+" sv[1]="+str(sv[1])+" counter="+str(counter)+" divider="+str(divider)+" energyNow="+str(energy)+" msdiff="+str(msdiff))
-                                        counterTime[d.Unit]=ms
-                                        svalue=str(power)+';'+str(energy)
-                                        # Log(LOG_DEBUG,"Counter kWh:  Name="+d.Name+" count="+str(counter)+" sValue="+svalue+" Name="+d.Name)
-                                        d.Update(nValue=0, sValue=svalue)
-                                        if ('opposite' in d.Options):
-                                            #opposite = Unit of the opposite kWh counter, so if that counter exists, set it to 0 power
-                                            opposite=int(d.Options['opposite'])
-                                            if (opposite in Devices and Devices[opposite].Type==243 and Devices[opposite].SubType==29):
-                                                #opposite device exists and it's a kWh counter
-                                                sv=Devices[opposite].sValue.split(';')
-                                                p=int(float(sv[0]))
-                                                energy=float(sv[1])
-                                                if (p!=0):
-                                                    Devices[opposite].Update(nValue=0, sValue="0;"+str(energy))
-                                #txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
-                                txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
-                            elif (cmdLen==7 or cmdLen==8):
-                                # transmitted power (int16) + energy (uint32)
-                                value=(arg1<<8) + arg2
-                                value2=(arg3<<24) + (arg4<<16) + (arg5<<8) + arg6
-                                #kWh?
-                                if (d.Type==243 and d.SubType==29): #kWh
-                                    #value=Watt, signed
-                                    #value2=N*10Wh
-                                    if (value&0x8000):
-                                        power=value-65536
-                                    else:
-                                        power=value
-                                    energy=value2*10
-                                    stringval=str(power)+";"+str(energy) 
-                                    if (d.sValue!=stringval):
-                                        d.Update(nValue=power, sValue=stringval)
-                                    #txQueueAdd(protocol, frameAddr,CMD_SET,7,CMD_ACK,port,[arg1,arg2,arg3,arg4,arg5,arg6,0],1,1)
-                                    txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
-                    elif (cmd==CMD_DCMD): # DCMD command addressed to me? deactivate/activate/toggle a scene or groupa
-                        Log(LOG_INFO,f"Request to activate or deactivate scene/group with idx={port}")
-                        Log(LOG_INFO,str(Domoticz))
-                        switchcmd=''
-                        if arg1==1:
-                            switchcmd='Off'
-                        elif arg1==2:
-                            switchcmd='On'
-                        elif arg1==3:
-                            switchcmd='Toggle'
-                        if switchcmd!='':
-                            PARAMS = {'type':'command', 'param':'switchscene', 'idx':str(port), 'switchcmd':switchcmd}
-                            r=requests.get(url = JSONURL, params = PARAMS)
-                            # data = r.json()
-                        txQueueAdd(protocol, frameAddr, cmd, 2, CMD_ACK, port, [arg1], 1, 1)
+                                            power=value
+                                        energy=value2*10
+                                        stringval=str(power)+";"+str(energy) 
+                                        if (d.sValue!=stringval):
+                                            d.Update(nValue=power, sValue=stringval)
+                                        #txQueueAdd(protocol, frameAddr,CMD_SET,7,CMD_ACK,port,[arg1,arg2,arg3,arg4,arg5,arg6,0],1,1)
+                                        txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                        elif (cmd==CMD_DCMD): # DCMD command addressed to me? deactivate/activate/toggle a scene or groupa
+                            Log(LOG_INFO,f"Request to activate or deactivate scene/group with idx={port}")
+                            Log(LOG_INFO,str(Domoticz))
+                            switchcmd=''
+                            if arg1==1:
+                                switchcmd='Off'
+                            elif arg1==2:
+                                switchcmd='On'
+                            elif arg1==3:
+                                switchcmd='Toggle'
+                            if switchcmd!='':
+                                PARAMS = {'type':'command', 'param':'switchscene', 'idx':str(port), 'switchcmd':switchcmd}
+                                r=requests.get(url = JSONURL, params = PARAMS)
+                                # data = r.json()
+                            txQueueAdd(protocol, frameAddr, cmd, 2, CMD_ACK, port, [arg1], 1, 1)
 
-            frameIdx=frameIdx+cmdLen+1
-        #remove current frame from buffer
-        for i in range(0,frameLen):
+                frameIdx=frameIdx+cmdLen+1
+            #remove current frame from buffer
+            for i in range(0,frameLen):
+                rxbuffer.pop(0)
+        else:
+            if (frameError==4): 
+                #invalid frame, to be discharged
+                Log(LOG_DEBUG,"Invalid frame, with short frameLen")
+                dump(1, rxbuffer, frameLen, "RXbad, low frameLen")
+            elif (frameError==3): 
+                #not enough data in rxbuffer
+                Log(LOG_DEBUG,"Not enough data in rxbuffer[]")
+                dump(1, rxbuffer, frameLen, "RXbad, not enough data")
+                return
+            elif (frameError==2):
+                # checksum error
+                Log(LOG_DEBUG,"Checksum error")
+                dump(1, rxbuffer, frameLen, "RXbad, invalid checksum")
+            elif frameError==1:
+                Log(LOG_DEBUG,"Invalid frame")
+                dump(1, rxbuffer, frameLen, "RXbad, invalid")
+
+            #in case of checksum error or invalid frame, remove first byte and seek again for the next preamble
             rxbuffer.pop(0)
-    else:
-        if (frameError==2):
-            # checksum error
-            Log(LOG_WARN,"Checksum error")
-            rxbuffer.pop(0)
-        elif (frameError==3): 
-            #frame len error: remove only the first byte corresponding to a false PREAMBLE
-            Log(LOG_DEBUG,"Frame len error: skip this false PREAMBLE")
-            if len(rxbuffer)<frameLen:
-                Log(LOG_DEBUG,"decode: rxbuffer="+str(len(rxbuffer))+" < frameLen="+str(frameLen))
-        elif frameError == 4:
-            # Invalid frame: length field too small
-            rxbuffer.pop(0)
-        dump(1, rxbuffer,frameLen,"RXbad")
-        rxbuffer.pop(0)
-        Log(LOG_WARN,"Frame length error:"+str(frameLen)+" while len(rxbuffer)="+str(len(rxbuffer)))
     return
 def send(Devices, SerialConn):
     #create frames from txQueue[], 1 for each address, and start transmitting

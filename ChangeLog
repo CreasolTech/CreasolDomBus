@@ -4,6 +4,9 @@ https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
 Creasol DomBus ChangeLog
+1.2.2 2023-04-06
+	Improved decode routine to reduce latency in case of bad data received
+
 1.2.1 2023-02-13
 	NTC 10k temperature: limit precision to 1 digit even when using B
 	coefficient. Also computed and sent the average value. (TonyA)
