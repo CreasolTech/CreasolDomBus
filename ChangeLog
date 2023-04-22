@@ -3,6 +3,9 @@ Author: Paolo Subiaco  linux@creasol.it
 https://www.creasol.it/domotics
 Telegram channel: https://t.me/DomBus  @DomBus
 
+TODO:
+Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works) 
+
 Creasol DomBus ChangeLog
 1.2.2 2023-04-06
 	Improved decode routine to reduce latency in case of bad data received

@@ -467,6 +467,7 @@ def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
                 break
         if (found==0):
             txQueue[frameAddr].append([cmd,cmdLen,cmdAck,port,args,retries])
+            #Log(LOG_DEBUG,"txQueueAdd (frame with same cmd,cmdLen... does not exist) frameAddr="+hex(frameAddr)+" cmd="+hex(cmd|cmdAck|cmdLen)+" port="+hex(port))
         #txQueueRetry: don't modify it... transmit when retry time expires (maybe now or soon)
     #check that modules[frameAddr] exists
     #Log(LOG_DEBUG,"txQueueAdd: frameAddr="+hex(frameAddr)+" cmd="+hex(cmd|cmdAck|cmdLen)+" port="+hex(port))
@@ -881,7 +882,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     elif (setNewAddr!=''): # set modbus address
         # send command to change modbus addr
         Log(LOG_INFO,f"Send command to change modbus device address to {setNewAddr}")
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, (setNewAddr>>8), (setNewAddr&0xff)], TX_RETRY, 1)
+        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port+5, [SUBCMD_SET, (setNewAddr>>8), (setNewAddr&0xff)], TX_RETRY, 1)    #Debug: RezzA: bugfix for DomBusEVSE changing modbus address 
     else:
         if modules[frameAddr][LASTPROTOCOL]==1:
             txQueueAdd(0, frameAddr, CMD_CONFIG, 5, 0, port, [((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,0) #PORTTYPE_VERSION=1
@@ -908,7 +909,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     
     descr='ID='+devID+','+setTypeName+','+setOptNames if (setTypeDefined==1) else setOptNames
     if setTypeDefined != 0: #type was defined in the description => change TypeName, if different
-        if Devices[Unit].Type!=TYPENAME2TYPESUB[typeName][0] and Devices[Unit].SubType!=TYPENAME2TYPESUB[typeName][1]:
+        if typeName in TYPENAME2TYPESUB and Devices[Unit].Type!=TYPENAME2TYPESUB[typeName][0] and Devices[Unit].SubType!=TYPENAME2TYPESUB[typeName][1]:
             # different typename from before: purge unused Options
             Log(LOG_INFO,f"Changed TypeName => purge Options dictionary (now Options={Options})")
             nValue=0
