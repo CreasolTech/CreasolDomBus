@@ -882,7 +882,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     elif (setNewAddr!=''): # set modbus address
         # send command to change modbus addr
         Log(LOG_INFO,f"Send command to change modbus device address to {setNewAddr}")
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port+5, [SUBCMD_SET, (setNewAddr>>8), (setNewAddr&0xff)], TX_RETRY, 1)    #Debug: RezzA: bugfix for DomBusEVSE changing modbus address 
+        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, (setNewAddr>>8), (setNewAddr&0xff)], TX_RETRY, 1)    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
     else:
         if modules[frameAddr][LASTPROTOCOL]==1:
             txQueueAdd(0, frameAddr, CMD_CONFIG, 5, 0, port, [((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,0) #PORTTYPE_VERSION=1
