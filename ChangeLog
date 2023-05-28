@@ -7,6 +7,12 @@ TODO:
 Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works) 
 
 Creasol DomBus ChangeLog
+1.3.0 2023-05-28
+	Added PULLUP and PULLDOWN options. They don't work with CUSTOM devices.
+
+	Changed management of incremental counters (sValue should be set to the
+	increment value, then Domoticz will update the cumulated value by itsself)
+	
 1.2.2 2023-04-06
 	Improved decode routine to reduce latency in case of bad data received
 
