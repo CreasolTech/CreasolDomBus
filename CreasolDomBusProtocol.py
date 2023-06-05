@@ -105,14 +105,15 @@ PORTOPT_PULLUP=0x0002           #pullup enabled
 PORTOPT_PULLDOWN=0x0004         #pulldown enabled
 #.....
 #note: since version
-PORTOPT_SELECTOR=0x0020         #Custom port configured as a selection switch to show/set different values
-PORTOPT_DIMMER=0x0040           #Dimmer slide
+PORTOPT_SELECTOR=0x0002         #Custom port configured as a selection switch to show/set different values
+PORTOPT_DIMMER=0x0004           #Dimmer slide
 PORTOPT_ADDRESS=0x0100          #Modbus device address
-PORTOPT_IMPORT_ENERGY=0x0120    #Total import energy in Wh*10 [32bit]
-PORTOPT_EXPORT_ENERGY=0x0140    #Total export energy in Wh*10 [32bit]
-PORTOPT_VOLTAGE=0x0160          #Voltage in Volt/10
-PORTOPT_POWER_FACTOR=0x0180     #Power factore 1/1000
-PORTOPT_FREQUENCY=0x01a0        #Frequency Hz/100
+PORTOPT_IMPORT_ENERGY=0x0102    #Total import energy in Wh*10 [32bit]
+PORTOPT_EXPORT_ENERGY=0x0104    #Total export energy in Wh*10 [32bit]
+PORTOPT_VOLTAGE=0x0106          #Voltage in Volt/10
+PORTOPT_POWER_FACTOR=0x0108     #Power factore 1/1000
+PORTOPT_FREQUENCY=0x010a        #Frequency Hz/100
+PORTOPT_CURRENT=0x010c
 
 PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_OUT_FLASH:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_IN_COUNTER:243, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244, PORTTYPE_OUT_ANALOG:244}
 
@@ -532,6 +533,17 @@ def txOutputsStatus(Devices,frameAddr):
                 else:
                     txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[d.nValue],TX_RETRY,1)
     return
+def addOptions(Options, setOptions, newOptions):
+    # Options: original Options dict for a device
+    # setOptions: new Options dict
+    # newOptions: new options to add to setOptions
+    # return 1 if new options have changed/added
+    ret=0
+    for k,v in newOptions.items():
+        setOptions[k]=v
+        if (k not in Options) or Options[k]!=v:
+            ret+=1
+    return ret
 
 def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
     newstate=1 if Command=="On" else 0
@@ -608,6 +620,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     setStopTime=""
     setAutoStart=""
     Options=Devices[Unit].Options
+    setOptions={}
+    setOptionsChanged=0
     #dombus command
 #    dcmd=[  # IN_EVENT,                 inValueL,   inValueH,   hwaddr, port,   outCmd,                 outValue
 #            [ DCMD_IN_EVENTS['NONE'],   0,          0,          0,      0,      DCMD_OUT_CMDS['NONE'],  0 ],
@@ -638,7 +652,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             setOptNames+=opt+","
         elif optu[:9]=="FUNCTION=":
             # Used to convert an analog value to another
-            Options['function']=optu[9:]
+            setOptionsChanged+=addOptions(Options, setOptions, {'function':optu[9:]}) #TODO: replicare ovunque!
             setType=PORTTYPE_IN_ANALOG
             setTypeDefined=1
             typeName="Temperature"
@@ -954,8 +968,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
                 #Options["LevelOffHidden"]="false"
                 #Options["SelectorStyle"]="0"
 
-#        if (len(Options)>0):
-        if (True):
+        if (setOptionsChanged>0):
             Log(LOG_INFO,"TypeName='"+str(typeName)+"', nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(Options))
             Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
         else:
@@ -993,6 +1006,9 @@ def updateCounter(Devices, d, value, value2):
     # compute power;energy for kWh meters, or newvalue for incremental counters
     # counter: value=newcountvalue, value2=oldcountvalue
     counter=value-value2
+    if counter==0: 
+        return    #no changes
+
     if (counter<0): #16bit overflow
         counter+=65536;
     if d.Unit not in counterOld:
@@ -1020,17 +1036,28 @@ def updateCounter(Devices, d, value, value2):
     elif (d.SubType==29): #kWh
         divider=1000    #default value for energy meters
 
-    if (d.SubType==28): #Incremental counter => sValue does not have "power;energy" 
+    sv=d.sValue.split(';')
+    if (len(sv)!=2):
+        Log(LOG_INFO,"Counter: sValue has not 2 items: Name="+d.Name+" sValue="+str(d.sValue)+" len(sv)="+str(len(sv)))
+        sv[0]="0" #power
+        sv.append("0") #energy
+    if d.Type==85:  #Rain meter: sValue=RainRate*100;Rainmm
+        rainRate=int(float(sv[0]))
+        rainMM=float(sv[1])
+        if (d.Unit not in counterTime):
+            counterTime[d.Unit]=0
+        rainMM+=counter;
+        ms=int(time.time()*1000)
+        msdiff=ms-counterTime[d.Unit]
+        counterTime[d.Unit]=ms
+        rainRate=int(counter*360000000/msdiff)
+        d.Update(nValue=0, sValue=f"{rainRate};{rainMM}")
+    elif d.SubType==28: #Incremental counter => sValue does not have "power;energy" 
         if (counter>0):
             # Domoticz works in this way: set a value to sValue, and it automatically add it to the current value of counter
             # TODO: manage DIVIDER= parameter ?
             d.Update(nValue=0, sValue=str(counter)) #problem when domoticz restarts and a divisor was set in the Domoticz counter interface
     elif (d.SubType==29): #kWh
-        sv=d.sValue.split(';')  #sv[0]=POWER, sv[1]=COUNTER
-        if (len(sv)!=2): 
-            Log(LOG_INFO,"Counter: sValue has not 2 items: Name="+d.Name+" sValue="+str(d.sValue)+" len(sv)="+str(len(sv)))
-            sv[0]="0" #power
-            sv.append("0") #energy
         power=int(float(sv[0]))
         energy=float(sv[1])
         energy+=counter*1000/divider  #total energy in Wh
@@ -1312,6 +1339,10 @@ def decode(Devices):
                                                 if (portType==PORTTYPE_CUSTOM):
                                                     if (portOpt==PORTOPT_SELECTOR):
                                                         typeName="Selector Switch"
+                                                        if "S.On" in portName:
+                                                            Options={"LevelNames": "0ff|On", "LevelActions": "", "LevelOffHidden": "False", "SelectorStyle": "0"}
+                                                        elif "S.State" in portName:
+                                                            Options={"LevelNames": "0ff|On|HiCurr|LoVolt|HiDiss|HiDissLoVolt", "LevelActions": "", "LevelOffHidden": "False", "SelectorStyle": "0"}
                                                     elif (portOpt==PORTOPT_DIMMER):
                                                         typeName="Dimmer"
                                                     elif (portOpt==PORTOPT_ADDRESS):
@@ -1326,6 +1357,8 @@ def decode(Devices):
                                                         Options["SignedWatt"]="1"       #Get 2 bytes signed data (16bit with MSB indicating the -)
                                                     elif (portOpt==PORTOPT_VOLTAGE):
                                                         typeName="Voltage"
+                                                    elif (portOpt==PORTOPT_CURRENT):
+                                                        typeName="Current (Single)"
                                                     elif (portOpt==PORTOPT_POWER_FACTOR):
                                                         typeName="Percentage"
                                                         descr+=",A=0.1"
@@ -1334,7 +1367,7 @@ def decode(Devices):
                                                         descr+=",A=0.01"
                                                         Options['Custom']="1;Hz"
                                                     descr+=",TypeName="+typeName
-                                                    Log(LOG_INFO,f"portName={portName}")
+                                                    Log(LOG_INFO,f"portName={portName} typeName={typeName}")
                                                     if ("EV State" in portName):
                                                         # create two sliders, one for min and one for max SoC
     #                                                    Domoticz.Device(Name="EV BatteryMin", TypeName="Dimmer", Unit=UnitFree, Description="Battery level under which the EV is charged using energy from the grid. This virtual device is used by script_event_power.lua (@CreasolTech on github)").Create()
@@ -1456,7 +1489,8 @@ def decode(Devices):
                                 d=Devices[unit]
                                 #got a frame from a well known device
                                 getDeviceID(frameAddr,port)
-                                if (cmdLen==2):
+                                if (cmdLen==2): # cmd, port, arg1
+                                    value=arg1  #8bit
                                     stringval='Off' if arg1==0 else 'On'
                                     #update device only if was changed
                                     #Log(LOG_DEBUG,"devID="+devID+" d.Type="+str(d.Type)+" d.SwitchType="+str(d.SwitchType)+" nValue="+str(arg1)+" sValue="+str(arg1))
@@ -1469,8 +1503,14 @@ def decode(Devices):
                                         else: #normal switch
                                             if (d.nValue!=int(arg1) or d.sValue!=stringval):
                                                 d.Update(nValue=int(arg1), sValue=stringval)
-                                    elif (d.Type==243):
-                                        updateCounter(Devices, d, arg1, 0)   # old protocol, with only incremental counter (not old value)
+                                    elif (d.Type==243 or d.Type==85):   # counter or rain, old modules sending only the incremental counter without the old confirmed counter
+                                        #extract A and B, if defined, to compute the right value VALUE=A*dombus_value+B
+                                        v=getOpt(d,"A=")
+                                        a=float(v) if (v!="false") else 1
+                                        v=getOpt(d,"B=")
+                                        b=float(v) if (v!="false") else 0
+                                        Value=a*value+b
+                                        updateCounter(Devices, d, Value, 0)   # old protocol, with only incremental counter (not old value)
                                     else:
                                         #device is not a switch, or has not the SwitchType attribute
                                         Log(LOG_DEBUG,"Ignore SET command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
@@ -1478,6 +1518,7 @@ def decode(Devices):
                                     #send ack
                                     txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
                                 elif (cmdLen==3 or cmdLen==4):
+                                    #cmd port arg1 arg2 arg3
                                     #analog value, distance, temperature, humidity, watt
                                     value=arg1*256+arg2
                                     if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP]):
@@ -1518,6 +1559,8 @@ def decode(Devices):
                                         hum=int(value/10)
                                         if (hum>5 and d.nValue!=hum):
                                             d.Update(nValue=hum, sValue=HRstatus(hum))
+                                    elif d.Type==85: # rain meter
+                                        updateCounter(Devices, d, value, 0)
                                     elif (d.Type==243): #distance, voltage, frequency, power factor, watt, ...
                                         if (d.SubType==29): #kWh => signed power
                                             Value=value
@@ -1547,6 +1590,8 @@ def decode(Devices):
                                             d.Update(nValue=int(temp), sValue=stringval)
                                         #txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
                                         txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                                    elif d.Type==85: # rain meter
+                                        updateCounter(Devices, d, value, value2)
                                     elif (d.Type==243):
                                         updateCounter(Devices, d, value, value2)
                                     #txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
@@ -1768,9 +1813,14 @@ def heartbeat(Devices):
                     if (pc<p): #power was reduced
                         sv=str(pc)+";"+sv[1]
                         Devices[u].Update(nValue=0, sValue=sv)
-        else:
-            # this unit is not configured as a power meter => no need to compute power
-            delmodules.append(u)
+        elif Devices[u].Type==85: # rain meter => reset rain rate if no pulses since 10 minutes
+            ms=int(time.time()*1000)
+            msdiff=ms-counterTime[u] #elapsed time since last value
+            if (msdiff>600000):
+                #More than 10 minutes without pulses
+                sv=Devices[u].sValue.split(';')
+                rainMM=sv[1]
+                Devices[u].Update(nValue=0, sValue=f"0;{rainMM}")
     for u in delmodules:
         del counterTime[u]
 

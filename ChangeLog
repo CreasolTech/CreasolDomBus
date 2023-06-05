@@ -7,6 +7,9 @@ TODO:
 Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works) 
 
 Creasol DomBus ChangeLog
+1.3.1 2023-06-05
+	Added Rain type: "IN_COUNTER,Typename=Rain"
+
 1.3.0 2023-05-28
 	Added PULLUP and PULLDOWN options. They don't work with CUSTOM devices.
 
