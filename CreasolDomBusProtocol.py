@@ -1523,9 +1523,9 @@ def decode(Devices):
                                     value=arg1*256+arg2
                                     if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP]):
                                         if 'function' in d.Options:
-                                            Ro=10000
+                                            Ro=10000.0  # 20230703: float (was int)
                                             To=25.0
-                                            temp=0  #default
+                                            temp=0.0  #default temperature # 20230703: float (was int)
                                             if (d.Options['function']=='3950'):
                                                 #value=0..65535
                                                 beta=3950
