@@ -1543,12 +1543,11 @@ def decode(Devices):
                                             avgTemp=float(d.Options['avgTemp'])
                                         else:
                                             avgTemp=temp
-                                        Log(LOG_DEBUG,f"Name={d.Name} temp={temp} avgTemp={avgTemp} diff={round(temp-avgTemp,1)}")
-                                        if abs(avgTemp-temp)<2:
-                                            temp=(avgTemp*5+temp)/6
-                                            #Log(LOG_DEBUG,"tempDiff<1 => temp=(avgTemp*5+temp)/6="+str(temp))
-                                        else:
+                                        if abs(avgTemp-temp)>2:
                                             Log(LOG_WARN,f"Temperature warning: Name={d.Name} temp={temp} avgTemp={avgTemp} diff={round(temp-avgTemp,1)}")
+                                        Log(LOG_DEBUG,f"Name={d.Name} temp={temp} avgTemp={avgTemp} diff={round(temp-avgTemp,1)} value={value}")
+                                        temp=(avgTemp*5+temp)/6
+                                        #Log(LOG_DEBUG,"tempDiff<1 => temp=(avgTemp*5+temp)/6="+str(temp))
                                         d.Options['avgTemp']=str(round(temp,2))   #save current avg value, with 2 digit precision
 
                                         #Now manage A and B
