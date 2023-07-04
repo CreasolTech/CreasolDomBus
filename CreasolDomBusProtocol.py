@@ -652,7 +652,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             setOptNames+=opt+","
         elif optu[:9]=="FUNCTION=":
             # Used to convert an analog value to another
-            setOptionsChanged+=addOptions(Options, setOptions, {'function':optu[9:]}) #TODO: replicare ovunque!
+            setOptionsChanged+=addOptions(Options, setOptions, {'function':optu[9:]}) 
             setType=PORTTYPE_IN_ANALOG
             setTypeDefined=1
             typeName="Temperature"
@@ -905,7 +905,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         Log(LOG_INFO,f"Send command to change modbus device address to {setNewAddr}")
         txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, (setNewAddr>>8), (setNewAddr&0xff)], TX_RETRY, 1)    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
     else:
-        if modules[frameAddr][LASTPROTOCOL]==1:
+        if frameAddr in modules and modules[frameAddr][LASTPROTOCOL]==1:
             txQueueAdd(0, frameAddr, CMD_CONFIG, 5, 0, port, [((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,0) #PORTTYPE_VERSION=1
         else:
             txQueueAdd(0, frameAddr, CMD_CONFIG, 7, 0, port, [((setType>>24)&0xff), ((setType>>16)&0xff), ((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,0) #PORTTYPE_VERSION=2
@@ -969,8 +969,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
                 #Options["SelectorStyle"]="0"
 
         if (setOptionsChanged>0):
-            Log(LOG_INFO,"TypeName='"+str(typeName)+"', nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(Options))
-            Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
+            Log(LOG_INFO,"TypeName='"+str(typeName)+"', nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(setOptions))
+            Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr), Options=setOptions)  # Update description (removing HWADDR=0x1234)
         else:
             Log(LOG_INFO,"TypeName="+str(typeName)+", nValue="+str(nValue)+", sValue="+str(sValue)+", Description="+str(descr))
             Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr))  # Update description (removing HWADDR=0x1234)
@@ -1543,18 +1543,18 @@ def decode(Devices):
                                             avgTemp=d.Options['avgTemp']
                                         else:
                                             avgTemp=25
-                                        #Log(LOG_DEBUG,"temp="+str(temp)+" avgTemp="+str(avgTemp))
+                                        Log(LOG_INFO,f"Name={d.Name} temp={temp} avgTemp={avgTemp}")
                                         if abs(avgTemp-temp)<2:
                                             temp=(avgTemp*5+temp)/6
                                             #Log(LOG_DEBUG,"tempDiff<1 => temp=(avgTemp*5+temp)/6="+str(temp))
-                                        d.Options['avgTemp']=round(temp,2)   #save current avg value, with 2 digit precision
+                                        Options['avgTemp']=round(temp,2)   #save current avg value, with 2 digit precision
 
                                         #Now manage A and B
                                         v=getOpt(d,"B=")
                                         b=float(v) if (v!="false") else 0
                                         temp=round(temp+b, 1)
                                         if (temp>-50 and d.sValue!=str(temp)):
-                                            d.Update(nValue=int(temp), sValue=str(temp))
+                                            d.Update(nValue=int(temp), sValue=str(temp), Options=Options)   #20230704: added Options to Update()
                                     elif (d.Type==PORTTYPE[PORTTYPE_SENSOR_HUM]):
                                         hum=int(value/10)
                                         if (hum>5 and d.nValue!=hum):
