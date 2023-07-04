@@ -7,9 +7,11 @@ TODO:
 Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works) 
 
 Creasol DomBus ChangeLog
+1.3.3 2023-07-04
+	Temperature: when Options['avgTemp'] is changed, d.Update(Options)
+
 1.3.2 2023-07-04
 	Using float constants instead of integer to compute the NTC temperature.
-	Temperature: when Options['avgTemp'] is changed, d.Update(Options)
 
 1.3.1 2023-06-05
 	Added Rain type: "IN_COUNTER,Typename=Rain"

@@ -1540,21 +1540,23 @@ def decode(Devices):
 
                                         # compute the averaged temperature and save it in d.Options[]
                                         if 'avgTemp' in d.Options:
-                                            avgTemp=d.Options['avgTemp']
+                                            avgTemp=float(d.Options['avgTemp'])
                                         else:
-                                            avgTemp=25
-                                        Log(LOG_INFO,f"Name={d.Name} temp={temp} avgTemp={avgTemp}")
+                                            avgTemp=temp
+                                        Log(LOG_DEBUG,f"Name={d.Name} temp={temp} avgTemp={avgTemp} diff={round(temp-avgTemp,1)}")
                                         if abs(avgTemp-temp)<2:
                                             temp=(avgTemp*5+temp)/6
                                             #Log(LOG_DEBUG,"tempDiff<1 => temp=(avgTemp*5+temp)/6="+str(temp))
-                                        Options['avgTemp']=round(temp,2)   #save current avg value, with 2 digit precision
+                                        else:
+                                            Log(LOG_WARN,f"Temperature warning: Name={d.Name} temp={temp} avgTemp={avgTemp} diff={round(temp-avgTemp,1)}")
+                                        d.Options['avgTemp']=str(round(temp,2))   #save current avg value, with 2 digit precision
 
                                         #Now manage A and B
                                         v=getOpt(d,"B=")
                                         b=float(v) if (v!="false") else 0
                                         temp=round(temp+b, 1)
                                         if (temp>-50 and d.sValue!=str(temp)):
-                                            d.Update(nValue=int(temp), sValue=str(temp), Options=Options)   #20230704: added Options to Update()
+                                            d.Update(nValue=int(temp), sValue=str(temp), Options=d.Options)   #20230704: added Options to Update()
                                     elif (d.Type==PORTTYPE[PORTTYPE_SENSOR_HUM]):
                                         hum=int(value/10)
                                         if (hum>5 and d.nValue!=hum):
