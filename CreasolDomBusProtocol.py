@@ -76,6 +76,7 @@ SUBCMD_SET6=0x06                #Send parameter 6 (16bit value)
 SUBCMD_SET7=0x07                #Send parameter 7 (16bit value)
 SUBCMD_SET8=0x08                #Send parameter 8 (16bit value)
 SUBCMD_SET9=0x09                #Send parameter 9 (16bit value)
+SUBCMD_SET10=0x0a               #Send parameter 10 (16bit value)
 SUBCMD_SETMAX=0x10              #Send parameter 16
 
 PORTTYPE_DISABLED=0x0000        #port not used
@@ -445,18 +446,16 @@ def convertValueToDombus(d, value):
     else:
         return int(value)
 
-def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
+def txQueueAdd(frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
     #add a command in the tx queue for the specified module (frameAddr)
     #if that command already exists, update it
     #cmdLen=length of data after command (port+args[])
     global txQueue
     sec=int(time.time())
     ms=int(time.time()*1000)
-    #Log(LOG_DEBUG,f"txQueueAdd({protocol}, {frameAddr}, cmd={cmd},  cmdLen={cmdLen}, cmdAck={cmdAck}, port={port}, args={args}, retries={retries}, now={now})")
-    if protocol==0:
-        # check if module already in modules[]
-        if (frameAddr in modules):
-            protocol=modules[frameAddr][LASTPROTOCOL]
+    protocol=2
+    if frameAddr in modules:
+        protocol=modules[frameAddr][LASTPROTOCOL]
     if len(txQueue)==0 or frameAddr not in txQueue:
         #create txQueue[frameAddr]
         txQueue[frameAddr]=[[cmd, cmdLen, cmdAck, port, args, retries]]
@@ -485,8 +484,6 @@ def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
         modules[frameAddr]=[sec,    ms,     sec+3-PERIODIC_STATUS_INTERVAL, protocol, 0] #transmit output status in 3 seconds
     else:
         #frameAddr already in modules[]
-        if (protocol!=0):
-            modules[frameAddr][LASTPROTOCOL]=protocol
         if (now):
             modules[frameAddr][LASTTX]=0 #transmit now
     return        
@@ -494,7 +491,7 @@ def txQueueAdd(protocol, frameAddr, cmd,cmdLen,cmdAck,port,args,retries,now):
 def txQueueAskConfig(protocol,frameAddr):
     global devicesFull
     if (devicesFull==0):
-        txQueueAdd(protocol, frameAddr,CMD_CONFIG,1,0,0xff,[],TX_RETRY,1)    #port=0xff to ask full configuration 
+        txQueueAdd(frameAddr,CMD_CONFIG,1,0,0xff,[],TX_RETRY,1)    #port=0xff to ask full configuration 
     return 
 
 def txQueueRemove(frameAddr,cmd,port,arg1):
@@ -527,11 +524,11 @@ def txOutputsStatus(Devices,frameAddr):
                         level=int(d.sValue) if d.nValue==1 else 0 #1% step
                     else:
                         level=int(int(d.sValue)/5) if d.nValue==1 else 0    #soft dimmer => 5% step
-                    txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[level],TX_RETRY,1) #Level: from 0 to 20 = 100%
+                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[level],TX_RETRY,1) #Level: from 0 to 20 = 100%
                 elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
-                    txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[d.nValue],TX_RETRY,1) #Level: 0, 10, 20, ....
+                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[d.nValue],TX_RETRY,1) #Level: 0, 10, 20, ....
                 else:
-                    txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[d.nValue],TX_RETRY,1)
+                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[d.nValue],TX_RETRY,1)
     return
 def addOptions(Options, setOptions, newOptions):
     # Options: original Options dict for a device
@@ -556,17 +553,17 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
     if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
         if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
             if (Command=='Off'):
-                txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[0],TX_RETRY,1) #Level: from 0 to 20 = 100%
+                txQueueAdd(frameAddr,CMD_SET,2,0,port,[0],TX_RETRY,1) #Level: from 0 to 20 = 100%
             else:
                 if (re.search('OUT_ANALOG|CUSTOM.DIMMER',d.Description)):
-                    txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[int(Level)],TX_RETRY,1) #Level: from 0 to 100 = 100% (1% step)
+                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[int(Level)],TX_RETRY,1) #Level: from 0 to 100 = 100% (1% step)
                     #Log(LOG_INFO,f"Dimmer level set to {Level} by parseCommand()")
                 else:
-                    txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[int(Level/5)],TX_RETRY,1) #Level: from 0 to 20 = 100% (5% step)
+                    txQueueAdd(frameAddr,CMD_SET,2,0,port,[int(Level/5)],TX_RETRY,1) #Level: from 0 to 20 = 100% (5% step)
                 #nValue=0 if Level==0 else 1
                 #d.Update(nValue=1, sValue="20")
         elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
-            txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[Level],TX_RETRY,1) #Level: 0, 10, 20, ....
+            txQueueAdd(frameAddr,CMD_SET,2,0,port,[Level],TX_RETRY,1) #Level: 0, 10, 20, ....
         elif (hasattr(d,'SwitchType') and (d.SwitchType==15 or d.SwitchType==14)): #venetian blinds
             if (Command=='Off' or Command=='Open'): #Open
                 v=getOpt(d,"TIMEOPEN=")
@@ -581,15 +578,15 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
             else: #Stop
                 newstate=0
             #newstate=0 => STOP. newstate&0x80 => open for newstate&0x7f seconds, else close for newstate&0x7f seconds
-            txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[newstate],TX_RETRY,1) 
+            txQueueAdd(frameAddr,CMD_SET,2,0,port,[newstate],TX_RETRY,1) 
         else: #normal switch
-            txQueueAdd(0, frameAddr,CMD_SET,2,0,port,[newstate],TX_RETRY,1)
+            txQueueAdd(frameAddr,CMD_SET,2,0,port,[newstate],TX_RETRY,1)
     elif d.Type==243:
         if d.SubType==29:  #kWh
             #Transmit power value to DomBus, as signed16.  Command=5410;0  (power;energy)
             power=int(float(Command.split(';')[0]))
             if (power<0): power=65536+power;
-            txQueueAdd(0, frameAddr,CMD_SET,4,0,port,[(power>>8), (power&0x0ff), 0], 1, 1)
+            txQueueAdd(frameAddr,CMD_SET,4,0,port,[(power>>8), (power&0x0ff), 0], 1, 1)
     else:
         Log(LOG_DEBUG,"parseCommand: ignore command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
     return
@@ -616,6 +613,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     setMaxPowerTime=""
     setMaxPower2Time=""
     setWaitTime=""
+    setMeterType=""
     setStartPower=""
     setStopTime=""
     setAutoStart=""
@@ -673,7 +671,6 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
                 divider=int(float(opt[8:]))
                 if divider!=0:
                     Options['divider']=str(divider)
-                    Log(LOG_DEBUG, "Set DIVIDER option: Options="+str(Options))
                     setOptNames+=opt+","
         elif optu[:5]=="ADDR=":
             addr=int(float(opt[5:]))
@@ -728,6 +725,11 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             if (setWaitTime==0):
                 setWaitTime=6   # default value
             setOptNames+=f"EVWAITTIME={setWaitTime},"
+        elif optu[:12]=="EVMETERTYPE=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setMeterType=int(float(opt[12:]))
+            if (setMeterType>1):
+                setMeterType=0   # default value
+            setOptNames+=f"EVMETERTYPE={setMeterType},"
         elif optu[:9]=="HWADDR=0X" and len(opt)==13:
             #set hardware address
             hwaddr=int(optu[7:],16)
@@ -899,16 +901,16 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         # remove HWADDR=0X1234 option from the device description
         # send command to change hwaddr
         Log(LOG_DEBUG,f"Set HWADDR={setHwaddr}")
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, 0, [(setHwaddr >> 8), (setHwaddr&0xff), (0-(setHwaddr >> 8)-(setHwaddr&0xff)-0xa5)], TX_RETRY,1)
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, 0, [(setHwaddr >> 8), (setHwaddr&0xff), (0-(setHwaddr >> 8)-(setHwaddr&0xff)-0xa5)], TX_RETRY,1)
     elif (setNewAddr!=''): # set modbus address
         # send command to change modbus addr
         Log(LOG_INFO,f"Send command to change modbus device address to {setNewAddr}")
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, (setNewAddr>>8), (setNewAddr&0xff)], TX_RETRY, 1)    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, (setNewAddr>>8), (setNewAddr&0xff)], TX_RETRY, 1)    #EVSE: until 2023-04-24 port must be replaced with port+5 to permit changing modbus address 
     else:
         if frameAddr in modules and modules[frameAddr][LASTPROTOCOL]==1:
-            txQueueAdd(0, frameAddr, CMD_CONFIG, 5, 0, port, [((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,0) #PORTTYPE_VERSION=1
+            txQueueAdd(frameAddr, CMD_CONFIG, 5, 0, port, [((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,0) #PORTTYPE_VERSION=1
         else:
-            txQueueAdd(0, frameAddr, CMD_CONFIG, 7, 0, port, [((setType>>24)&0xff), ((setType>>16)&0xff), ((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,0) #PORTTYPE_VERSION=2
+            txQueueAdd(frameAddr, CMD_CONFIG, 7, 0, port, [((setType>>24)&0xff), ((setType>>16)&0xff), ((setType>>8)&0xff), (setType&0xff), (setOpt >> 8), (setOpt&0xff)], TX_RETRY,0) #PORTTYPE_VERSION=2
     if modules[frameAddr][LASTPROTOCOL] != 1:
         #Transmit Dombus CMD config
         dcmdnum=0
@@ -917,88 +919,84 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             #note: port|=0, 0x20, 0x40, 0x60 (4 DCMD for each port)
             if (d[0]!=0 and d[0]<DCMD_IN_EVENTS["MAX"]):
                 dcmdnum+=1
-                txQueueAdd(0, frameAddr,CMD_DCMD_CONFIG, 12, 0, port|(i<<5), [ d[0], 
+                txQueueAdd(frameAddr,CMD_DCMD_CONFIG, 12, 0, port|(i<<5), [ d[0], 
                     d[1]>>8, d[1]&0xff, 
                     d[2]>>8, d[2]&0xff, 
                     d[3]>>8, d[3]&0xff, d[4], d[5], 
                     d[6]>>8, d[6]&0xff ], TX_RETRY, 0) 
         if (dcmdnum==0): #DCMD not defined => transmits an empty DCMD_CONFIG 
-            txQueueAdd(0, frameAddr, CMD_DCMD_CONFIG, 2, 0, port, [ DCMD_IN_EVENTS["NONE"] ], TX_RETRY, 0)
+            txQueueAdd(frameAddr, CMD_DCMD_CONFIG, 2, 0, port, [ DCMD_IN_EVENTS["NONE"] ], TX_RETRY, 0)
     else:
         #protocol==1 does not support DCMD_CONFIG command (too long)
-        Log(LOG_WARN,"Device "+devID+" does not support protocol #2 and DCMD commands")
+        Log(LOG_WARN,f"Device {devID} does not support protocol #2 and DCMD commands: frameAddr={frameAddr} protocol={modules[frameAddr][LASTPROTOCOL]}")
     
     descr='ID='+devID+','+setTypeName+','+setOptNames if (setTypeDefined==1) else setOptNames
-    if setTypeDefined != 0: #type was defined in the description => change TypeName, if different
-        if typeName in TYPENAME2TYPESUB and Devices[Unit].Type!=TYPENAME2TYPESUB[typeName][0] and Devices[Unit].SubType!=TYPENAME2TYPESUB[typeName][1]:
-            # different typename from before: purge unused Options
-            Log(LOG_INFO,f"Changed TypeName => purge Options dictionary (now Options={Options})")
-            nValue=0
+    # Now checking Options , removing bad ones
+    if typeName in TYPENAME2TYPESUB and Devices[Unit].Type!=TYPENAME2TYPESUB[typeName][0] and Devices[Unit].SubType!=TYPENAME2TYPESUB[typeName][1]:
+        # different typename from before
+        nValue=0
+        sValue='0'
+        if typeName!='Selector Switch':
+            if 'LevelNames' in Options: del Options['LevelNames']
+            if 'LevelOffHidden' in Options: del Options['LevelOffHidden']
+            if 'SelectorStyle' in Options: del Options['SelectorStyle']
+        else:
             sValue='0'
-            if typeName!='Selector Switch':
-                if 'LevelNames' in Options: del Options['LevelNames']
-                if 'LevelOffHidden' in Options: del Options['LevelOffHidden']
-                if 'SelectorStyle' in Options: del Options['SelectorStyle']
-            else:
-                sValue='0'
 
-            if typeName!='Counter Incremental' and typeName!='kWh':
-                if 'divider' in Options: del Options['divider']
-                if 'EnergyMeterMode' in Options: del Options['EnergyMeterMode']
-                if 'SignedWatt' in Options: del Options['SignedWatt']
-                if 'opposite' in Options: del Options['opposite']
-            else:
-                sValue='0;0'
-
-            if typeName!='Custom':
-                if 'Custom' in Options: del Options['Custom']
-            if typeName!='Temperature':
-                if 'function' in Options: del Options['function']
-                if 'avgTemp' in Options: del Options['avgTemp']
-            else:
-                sValue="0"
+        if typeName!='Counter Incremental' and typeName!='kWh':
+            if 'divider' in Options: del Options['divider']
+            if 'EnergyMeterMode' in Options: del Options['EnergyMeterMode']
+            if 'SignedWatt' in Options: del Options['SignedWatt']
+            if 'opposite' in Options: del Options['opposite']
         else:
-            #same TypeName as before => device not changed
-            nValue=Devices[Unit].nValue
-            sValue=Devices[Unit].sValue
+            sValue='0;0'
+
+        if typeName!='Custom':
+            if 'Custom' in Options: del Options['Custom']
+        if typeName!='Temperature':
+            if 'function' in Options: del Options['function']
+            if 'avgTemp' in Options: del Options['avgTemp']
+        else:
+            sValue="0"
+    else:
+        #same TypeName as before => device not changed
+        nValue=Devices[Unit].nValue
+        sValue=Devices[Unit].sValue
                 
-        if (setTypeName=="IN_TWINBUTTON" or setTypeName=="OUT_BLIND"): #selector
-            if "LevelNames" not in Options:
-                Options["LevelNames"]="Off|Down|Up"
-                #Options["LevelOffHidden"]="false"
-                #Options["SelectorStyle"]="0"
+    if (setTypeName=="IN_TWINBUTTON" or setTypeName=="OUT_BLIND"): #selector
+        if "LevelNames" not in Options:
+            Options["LevelNames"]="Off|Down|Up"
+            #Options["LevelOffHidden"]="false"
+            #Options["SelectorStyle"]="0"
+    Options.update(setOptions)
 
-        if (setOptionsChanged>0):
-            Log(LOG_INFO,"TypeName='"+str(typeName)+"', nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(setOptions))
-            Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr), Options=setOptions)  # Update description (removing HWADDR=0x1234)
-        else:
-            Log(LOG_INFO,"TypeName="+str(typeName)+", nValue="+str(nValue)+", sValue="+str(sValue)+", Description="+str(descr))
-            Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr))  # Update description (removing HWADDR=0x1234)
-        Log(LOG_INFO,"Device with TypeName="+str(typeName)+" updated!")
-    else: #type not defined in description => don't change it!
-        Devices[Unit].Update(nValue=Devices[Unit].nValue, sValue=Devices[Unit].sValue, Description=str(descr))  # Update description (removing HWADDR=0x1234)
+#        if (setOptionsChanged>0):
+    Log(LOG_INFO,"TypeName='"+str(typeName)+"', nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(Options))
+    Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
     if (setCal!=32768): #new calibration value
         if (setCal<0): 
             setCal+=65536
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_CALIBRATE, ((setCal>>8)&0xff), (setCal&0xff)], TX_RETRY, 0)
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_CALIBRATE, ((setCal>>8)&0xff), (setCal&0xff)], TX_RETRY, 0)
     if (setMaxCurrent!=""): # EV Mode: set max current (cable) 
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, 0, setMaxCurrent], TX_RETRY,0) 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, 0, setMaxCurrent], TX_RETRY,0) 
     if (setMaxPower!=""): # EV Mode: set max power from grid (contractual power + 10%)
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET2, setMaxPower>>8, setMaxPower&0xff], TX_RETRY,0) 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET2, setMaxPower>>8, setMaxPower&0xff], TX_RETRY,0) 
     if (setStartPower!=""):
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET3, ((setStartPower>>8)&0xff), (setStartPower&0xff)], TX_RETRY,0) 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET3, ((setStartPower>>8)&0xff), (setStartPower&0xff)], TX_RETRY,0) 
     if (setStopTime!=""):
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET4, ((setStopTime>>8)&0xff), (setStopTime&0xff)], TX_RETRY,0) 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET4, ((setStopTime>>8)&0xff), (setStopTime&0xff)], TX_RETRY,0) 
     if (setAutoStart!=""):
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET5, ((setAutoStart>>8)&0xff), (setAutoStart&0xff)], TX_RETRY,0) 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET5, ((setAutoStart>>8)&0xff), (setAutoStart&0xff)], TX_RETRY,0) 
     if (setMaxPower2!=""): # EV Mode: set max power from grid, absolute maximum level (e.g. contractual power + 27%
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET6, setMaxPower2>>8, setMaxPower2&0xff], TX_RETRY,0) 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET6, setMaxPower2>>8, setMaxPower2&0xff], TX_RETRY,0) 
     if (setMaxPowerTime!=""): # EV Mode: set maximum time charging at this power (e.g. 5400 = 90 minutes)
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET7, setMaxPowerTime>>8, setMaxPowerTime&0xff], TX_RETRY,0) 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET7, setMaxPowerTime>>8, setMaxPowerTime&0xff], TX_RETRY,0) 
     if (setMaxPower2Time!=""): # EV Mode: set maximum time charging at this power (e.g. 5400 = 90 minutes)
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET8, setMaxPower2Time>>8, setMaxPower2Time&0xff], TX_RETRY,0) 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET8, setMaxPower2Time>>8, setMaxPower2Time&0xff], TX_RETRY,0) 
     if (setWaitTime!=""): # EV Mode: set wait time after current change, before changing current again (e.g. 1-60, default 6s)
-        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET9, setWaitTime>>8, setWaitTime&0xff], TX_RETRY,0) 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET9, setWaitTime>>8, setWaitTime&0xff], TX_RETRY,0) 
+    if (setMeterType!=""): # EV Mode: set energy meter type (0=DDS238 ZN/S, 1=DTS238 ZN/S)
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET10, setMeterType>>8, setMeterType&0xff], TX_RETRY,0) 
         
     return
 
@@ -1011,6 +1009,7 @@ def updateCounter(Devices, d, value, value2):
 
     if (counter<0): #16bit overflow
         counter+=65536;
+    """
     if d.Unit not in counterOld:
         counterOld[d.Unit]=0
     value_minus_old=value-counterOld[d.Unit]
@@ -1026,6 +1025,20 @@ def updateCounter(Devices, d, value, value2):
         # Log(LOG_DEBUG,"Counter: counter in sync =>  Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit])+", power="+str(power))
     elif counter != 0:  # show warning only if this counter is running. If it's not connected to anything, ignore it
         Log(LOG_WARN,"Counter: counterOld NOT in sync! Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit]))
+    """
+    if counter>32:
+        if counterOld[d.Unit]!=value2:
+            counter=value-counterOld[d.Unit]
+            if counter<0:
+                counter+=65536
+            if counter<=32:
+                Log(LOG_WARN,"Counter: value2!=counterOld, but value-counterOld<=32 => Ok! Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit]))
+            else:
+                Log(LOG_WARN,"Counter: counter>32 and counterOld NOT in sync => set counter=1! Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit]))
+                counter=1
+        else:   #counterOld==value2 => long time Domoticz inactivity?
+            Log(LOG_WARN,"Counter: counter>32 and counterOld==value2 => long inactivity? Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit]))
+            # accept counter value
     counterOld[d.Unit]=value
 
     divider=1    # default divider value
@@ -1070,6 +1083,7 @@ def updateCounter(Devices, d, value, value2):
         if (msdiff>=4000): #check that frames do not come too fast (Domoticz was busy with database backup??). Dombus tx period >= 5000ms
             power=int(counter*3600000000/(msdiff*divider))
             #if frame is received too fast (less than 4s between frames) => ignore power computation and keep old power value
+            Log(LOG_DEBUG,f"Counter kWh: Name={d.Name} power={power} counter={counter} msdiff={msdiff} divider={divider}")
         if (energy-float(sv[1])) > 16:
             Log(LOG_WARN,"Counter kWh: > 16Wh increment!!!  Name="+d.Name+" sValueOld="+d.sValue+" sv[0]="+str(sv[0])+" sv[1]="+str(sv[1])+" counter="+str(counter)+" divider="+str(divider)+" energyNow="+str(energy)+" msdiff="+str(msdiff))
         counterTime[d.Unit]=ms
@@ -1395,15 +1409,16 @@ def decode(Devices):
                                                         setStartPower=1200
                                                         setStopTime=90
                                                         setAutoStart=1
-                                                        descr+=f",EVMAXCURRENT={setMaxCurrent},EVMAXPOWER={setMaxPower},EVSTARTPOWER={setStartPower},EVSTOPTIME={setStopTime},EVAUTOSTART={setAutoStart}"
+                                                        setMeterType=0
+                                                        descr+=f",EVMAXCURRENT={setMaxCurrent},EVMAXPOWER={setMaxPower},EVSTARTPOWER={setStartPower},EVSTOPTIME={setStopTime},EVAUTOSTART={setAutoStart},ENERGYMETERTYPE=0"
                                                         nValue=0
                                                         sValue="0"
                                                         # Configure 
-                                                        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, 0, (setMaxCurrent&0xff)], TX_RETRY,0) 
-                                                        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET2, ((setMaxPower>>8)&0xff), (setMaxPower&0xff)], TX_RETRY,0) 
-                                                        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET3, ((setStartPower>>8)&0xff), (setStartPower&0xff)], TX_RETRY,0) 
-                                                        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET4, ((setStopTime>>8)&0xff), (setStopTime&0xff)], TX_RETRY,0) 
-                                                        txQueueAdd(0, frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET5, ((setAutoStart>>8)&0xff), (setAutoStart&0xff)], TX_RETRY,0) 
+                                                        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, 0, (setMaxCurrent&0xff)], TX_RETRY,0) 
+                                                        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET2, ((setMaxPower>>8)&0xff), (setMaxPower&0xff)], TX_RETRY,0) 
+                                                        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET3, ((setStartPower>>8)&0xff), (setStartPower&0xff)], TX_RETRY,0) 
+                                                        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET4, ((setStopTime>>8)&0xff), (setStopTime&0xff)], TX_RETRY,0) 
+                                                        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET5, ((setAutoStart>>8)&0xff), (setAutoStart&0xff)], TX_RETRY,0) 
                                                 elif (portOpt==PORTOPT_DIMMER):
                                                     typeName="Dimmer"
                                                     Log(LOG_INFO,f"DIMMER, portName={portName}")
@@ -1447,10 +1462,10 @@ def decode(Devices):
                                 Log(LOG_INFO,f"Msg #{port&15} from {devID}: {rxbuffer[portIdx+1:portIdx+cmdLen].decode()}")
                                 if (frameAddr in modules):
                                     modules[frameAddr][LASTSTATUS]=0    #force transmit output status
-                                txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
+                                txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
                         elif (cmd==CMD_GET): 
                             if (port==0): #port==0 => request from module to get status of all output!  NOT USED by any module, actually
-                                txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)   #tx ack
+                                txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)   #tx ack
                                 if (frameAddr in modules):
                                     modules[frameAddr][LASTSTATUS]=0    #force transmit output status
                             else: # port specified: return status for that port
@@ -1469,7 +1484,7 @@ def decode(Devices):
                                         else:   
                                             arg1=d.nValue
 
-                                        txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
+                                        txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
 
                         elif (cmd==CMD_SET):
                             #digital or analog input changed?
@@ -1483,7 +1498,7 @@ def decode(Devices):
                                 else:
                                     # ports is disabled => send ACK anyway, to prevent useless retries
                                     #Log(LOG_DEBUG,"Send ACK even if port "+str(port)+" is disabled")
-                                    txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
+                                    txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
 
                             else:
                                 d=Devices[unit]
@@ -1516,7 +1531,7 @@ def decode(Devices):
                                         Log(LOG_DEBUG,"Ignore SET command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
         
                                     #send ack
-                                    txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
+                                    txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
                                 elif (cmdLen==3 or cmdLen==4):
                                     #cmd port arg1 arg2 arg3
                                     #analog value, distance, temperature, humidity, watt
@@ -1576,8 +1591,8 @@ def decode(Devices):
                                         if (d.sValue!=str(Value)):
                                             d.Update(nValue=int(Value), sValue=str(Value))
                                         #Log(LOG_DEBUG,"Value="+str(a)+"*"+str(value)+"+"+str(b)+"="+str(Value))
-                                    #txQueueAdd(protocol, frameAddr,CMD_SET,3,CMD_ACK,port,[arg1,arg2,arg3],1,1)
-                                    txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                                    #txQueueAdd(frameAddr,CMD_SET,3,CMD_ACK,port,[arg1,arg2,arg3],1,1)
+                                    txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
                                 elif (cmdLen==5 or cmdLen==6):
                                     value=arg1*256+arg2
                                     value2=arg3*256+arg4
@@ -1589,14 +1604,14 @@ def decode(Devices):
                                         #Log(LOG_DEBUG,"TEMP_HUM: nValue="+str(temp)+" sValue="+stringval)
                                         if (temp>-50 and hum>5 and d.sValue!=stringval):
                                             d.Update(nValue=int(temp), sValue=stringval)
-                                        #txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
-                                        txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                                        #txQueueAdd(frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
+                                        txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
                                     elif d.Type==85: # rain meter
                                         updateCounter(Devices, d, value, value2)
                                     elif (d.Type==243):
                                         updateCounter(Devices, d, value, value2)
-                                    #txQueueAdd(protocol, frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
-                                    txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                                    #txQueueAdd(frameAddr,CMD_SET,5,CMD_ACK,port,[arg1,arg2,arg3,arg4,0],1,1)
+                                    txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
                                 elif (cmdLen==7 or cmdLen==8):
                                     # transmitted power (int16) + energy (uint32)
                                     value=(arg1<<8) + arg2
@@ -1613,8 +1628,8 @@ def decode(Devices):
                                         stringval=str(power)+";"+str(energy) 
                                         if (d.sValue!=stringval):
                                             d.Update(nValue=power, sValue=stringval)
-                                        #txQueueAdd(protocol, frameAddr,CMD_SET,7,CMD_ACK,port,[arg1,arg2,arg3,arg4,arg5,arg6,0],1,1)
-                                        txQueueAdd(protocol, frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
+                                        #txQueueAdd(frameAddr,CMD_SET,7,CMD_ACK,port,[arg1,arg2,arg3,arg4,arg5,arg6,0],1,1)
+                                        txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
                         elif (cmd==CMD_DCMD): # DCMD command addressed to me? deactivate/activate/toggle a scene or groupa
                             Log(LOG_INFO,f"Request to activate or deactivate scene/group with idx={port}")
                             Log(LOG_INFO,str(Domoticz))
@@ -1629,7 +1644,7 @@ def decode(Devices):
                                 PARAMS = {'type':'command', 'param':'switchscene', 'idx':str(port), 'switchcmd':switchcmd}
                                 r=requests.get(url = JSONURL, params = PARAMS)
                                 # data = r.json()
-                            txQueueAdd(protocol, frameAddr, cmd, 2, CMD_ACK, port, [arg1], 1, 1)
+                            txQueueAdd(frameAddr, cmd, 2, CMD_ACK, port, [arg1], 1, 1)
 
                 frameIdx=frameIdx+cmdLen+1
             #remove current frame from buffer

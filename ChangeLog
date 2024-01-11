@@ -7,6 +7,20 @@ TODO:
 Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works) 
 
 Creasol DomBus ChangeLog
+1.3.5 2024-01-11
+	Counter management: fixed the case that value2!=counterOld but
+	value-counterOld is consistent.
+
+1.3.4 2023-11-28
+	Added parameter EVMETERTYPE=
+	  0 => DDS238 ZN/S energy meter (single phase)
+	  1 => DTS238 ZN/S energy meter (three phases) 
+	On DomBusEVSE EVMETERTYPE should be set to 1 in case of three-phase
+	electric power, even if no energy meter is directly connected to the EVSE
+	module.
+
+	Some fixes on changing device configuration (protocol)
+
 1.3.3 2023-07-04
 	Temperature: when Options['avgTemp'] is changed, d.Update(Options)
 

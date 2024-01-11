@@ -3,24 +3,23 @@
 # Author: creasol https://creasol.it
 #
 """
-<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.3.3" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://www.creasol.it/domotics">
+<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.3.5" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://www.creasol.it/domotics">
     <description>
-        <h2>Creasol DomBus plugin - Rev.1.3.3</h2><br/>
+        <h2>Creasol DomBus plugin - Rev.1.3.5</h2><br/>
         RS485 bus protocol used to connect Domoticz controller (Raspberry PI, Linux, Windows, ...) to one or more Creasol DomBus* modules.<br/>
         Useful to expand Domoticz I/O/S: digital inputs, ultrasonic distance senrsors, 230Vac inputs, 12/24V inputs, digital output, power-optimized relays, buzzer, blinds/roller shutters, LEDs, temperature and relative humidity sensors, Led stripes, ...<br/>
         <h3>Supported modules:</h3>
         <ul style="list-style-type:square">
+            <li>Creasol <b>DomBusEVSE</b> : DIN module that work as <b>EV charging station AC, single or three-phase, with SOLAR mode</b> (only renewable energy) <b>or SOLAR+GRID modes</b> (use also energy from grid) and <b>Managed mode</b> (charge current managed by Domoticz script) </li> 
             <li>Creasol <b>DomBusTH</b> : <b> Temperature + Humidity sensor, 3* LEDs, 4* I/O </b> (digital/analog inputs, digital outputs, buzzer), <b> 1* 0-30V analog input, 2 open-drain outputs</b> (to drive exteranl relays or LEDs, 40V 50mA max).</li>
-            <li>Creasol <b>DomBus1</b> :  <b> 6*digital inputs, 1*230Vac input</b> (to detect 230V blackout, for example), <b> 2*250V 5A relay outputs</b>.</li>
             <li>Creasol <b>DomBus12</b> : <b> 7*I/O</b> (digital inputs/outpus, analog inputs, buzzer output, dimmer output), <b> 2 open-drain outputs</b> (to drive external relays).</li>
             <li>Creasol <b>DomBus23</b> : <b> 2* power-optimized relays, 1* 230Vac input, 2* analog/digital inputs, 2*I/O</b> (digital inputs/outputs, analog inputs, buzzer output, dimmer output), <b>2* 12/24V inputs with optocoupler, 1 power mosfet 30V 13A with dimmer</b> function.</li>
             <li>Creasol <b>DomBus31</b> : DIN module with <b> 6* SPST 250V 5A relays + 2* SPDT (NO+NC terminal blocks) 250V 10A relays</b>. All relays are power-optimized, and can be used to drive blind/roller shutter motors</li>
             <li>Creasol <b>DomBus32</b> : DIN module with <b> 3* SPST 250V 5A relays + 3* AC inputs + 5 I/Os</b>, designed for step-relay lights system.</li> 
             <li>Creasol <b>DomBus33</b> : DIN module with <b> 3* SPST 250V 5A relays + 3* AC inputs + 5 I/Os</b> with special firmware to <b>work with existing light systems</b> using pushbuttons + step-by-step relays</li>
             <li>Creasol <b>DomBus34</b> : DIN module with <b> 2* SPST 250V 5A relays + 1* AC inputs + 2 I/Os</b>. Manage <b>up to 4 power/energy meters</b> DDS238-2 ZN/S (Modbus)</li>
-            <li>Creasol <b>DomBusEVSE</b> : DIN module that work as <b>EV charging station AC, single phase, with SOLAR mode</b> (only renewable energy) <b>or SOLAR+GRID modes</b> (use also energy from grid)</li> 
             <li>Creasol <b>DomBus36</b> : DIN module with 12 relay outputs, 5A SPST.</li>
-
+            <li>Creasol <b>DomBus37</b> : DIN module with 12 inputs, 3 AC inputs, 3 relay outputs.</li>
         </ul>
         <h3>Configuration</h3>
         Please enter the right serial port, below.
