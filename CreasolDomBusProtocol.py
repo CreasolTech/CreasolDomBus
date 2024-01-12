@@ -1009,9 +1009,9 @@ def updateCounter(Devices, d, value, value2):
 
     if (counter<0): #16bit overflow
         counter+=65536;
-    """
     if d.Unit not in counterOld:
         counterOld[d.Unit]=0
+    """
     value_minus_old=value-counterOld[d.Unit]
     if (value_minus_old<0):     #16bit overflow
         value_minus_old+=65536
