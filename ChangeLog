@@ -7,6 +7,22 @@ TODO:
 Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works) 
 
 Creasol DomBus ChangeLog
+1.3.6 2024-02-29
+	Added option EV3PSELECT, for DomBusEVSE module on device RL2, to permit 
+	1P or 3P EV charging using 2x contactors (2P 40A) connected to RLEV and
+	RL2.
+	If RL2 is configured as EV3PSELECT, it's possible to 
+	1. stop charging (EVMode=Off)
+	2. enable RL2 device
+	3. start charging (EVMode=Solar or 25% or more) to activate both
+		contactors enabling three-phase charging.
+
+	1. stop charging (EVMode=Off)
+	2. disable RL2 device
+	3. start charging (EVMode=Solar or 25% or more) to activate only
+		the contactor driven by RL EV, enabling single-phase charging.
+
+
 1.3.5 2024-01-11
 	Counter management: fixed the case that value2!=counterOld but
 	value-counterOld is consistent.

@@ -41,7 +41,7 @@ import requests     # needed to call a scene/group by a DCMD command from a modu
 PROTOCOL1_WITH_PERIODIC_TX=0    # set to 1 if all existing modules transmit their status periodically (oldest modules with protocol 1 did not)
 
 #some constants
-FRAME_LEN_MIN=6
+FRAME_LEN_MIN=7
 FRAME_LEN_MIN2=9    #Min length of frame for protocol 2
 FRAME_LEN_MAX=31    #max length for TX (devices cannot handle long frames)
 FRAME_LEN=3
@@ -108,6 +108,7 @@ PORTOPT_PULLDOWN=0x0004         #pulldown enabled
 #note: since version
 PORTOPT_SELECTOR=0x0002         #Custom port configured as a selection switch to show/set different values
 PORTOPT_DIMMER=0x0004           #Dimmer slide
+PORTOPT_EV3PSELECT=0x00fe     #Relay 2 of EVSE module used to enable 3phase 
 PORTOPT_ADDRESS=0x0100          #Modbus device address
 PORTOPT_IMPORT_ENERGY=0x0102    #Total import energy in Wh*10 [32bit]
 PORTOPT_EXPORT_ENERGY=0x0104    #Total export energy in Wh*10 [32bit]
@@ -150,6 +151,7 @@ PORTOPTS={
         # options for CUSTOM device only 
         "SELECTOR":0x0002,            # Selection switch
         "DIMMER":0x0004,            # Dimmer
+        "EV3PSELECT":0x00fe,      # EVSE 3PSELECT
         }
 
 PORTTYPENAME={  #Used to set the device TypeName
