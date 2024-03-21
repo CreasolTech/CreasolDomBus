@@ -55,9 +55,12 @@ Then you can find the Creasol DomBus protocol in the **Setup -> Hardware panel**
 
 Now you're ready to connect one *DomBus* device to the RS485 bus, and check the new I/Os in the Switches panel or Setup -> Devices menu.
 
-
+***
 
 ## Creasol DomBus modules
+
+Below a list of modules, produced in Europe by Creasol, designed for Domoticz to be reliable and optimized for very very low power consumption.
+
 Our industrial and home automation modules are designed to be
 * very low power (**around 10mW with relays OFF**)
 * reliable (**no disconnections**)
