@@ -175,6 +175,7 @@ PORTTYPENAME={  #Used to set the device TypeName
         "OUT_BLIND":"Switch",
         "OUT_ANALOG":"Dimmer",
         "CUSTOM":"Switch",
+        "SETPOINT":"Setpoint",
         }
 
 DCMD_IN_EVENTS={
@@ -550,8 +551,17 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
     d=Devices[unit]
     deviceID=d.DeviceID
     #add command in the queue
+    Log(LOG_DEBUG,f"Type={d.Type} SubType={d.SubType} Name={d.Name} Command={Command} Level={Level} Hue={Hue}")
     if (not hasattr(d,'SwitchType')): 
         Log(LOG_DEBUG,f"Type={d.Type} SubType={d.SubType} Name={d.Name} Command={Command} Level={Level} Hue={Hue}")
+
+    if (port&0xff00)==0x100:    #SUBCMD_SET
+        Log(LOG_DEBUG,f"Virtual device that sends SUBCMD_SET command: port={port&0xff} Level={Level}")
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, (port&0xff) , [SUBCMD_SET, 0, int(Level)], TX_RETRY,0) 
+        Log(LOG_DEBUG,f"Before Update(), setpoint name={d.Name} nValue={d.nValue} sValue={d.sValue}")
+        #d.Update(nValue=0, sValue=str(Level))
+        #Log(LOG_DEBUG,f"After Update(), setpoint name={d.Name} nValue={d.nValue} sValue={d.sValue}")
+        return
     if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
         if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
             if (Command=='Off'):
@@ -1039,7 +1049,7 @@ def updateCounter(Devices, d, value, value2):
                 Log(LOG_WARN,"Counter: counter>32 and counterOld NOT in sync => set counter=1! Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit]))
                 counter=1
         else:   #counterOld==value2 => long time Domoticz inactivity?
-            Log(LOG_WARN,"Counter: counter>32 and counterOld==value2 => long inactivity? Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit]))
+            Log(LOG_DEBUG,"Counter: counter>32 and counterOld==value2 => long inactivity or high frequency sensor? Name="+d.Name+" counter="+str(counter)+" value="+str(value)+", value2="+str(value2)+", counterOld="+str(counterOld[d.Unit]))
             # accept counter value
     counterOld[d.Unit]=value
 
@@ -1053,9 +1063,11 @@ def updateCounter(Devices, d, value, value2):
 
     sv=d.sValue.split(';')
     if (len(sv)!=2):
-        Log(LOG_INFO,"Counter: sValue has not 2 items: Name="+d.Name+" sValue="+str(d.sValue)+" len(sv)="+str(len(sv)))
+        if d.SubType==29 or d.Type==85:
+            Log(LOG_INFO,"Counter kWh or Rain: sValue has not 2 items: Name="+d.Name+" sValue="+str(d.sValue)+" len(sv)="+str(len(sv)))
         sv[0]="0" #power
         sv.append("0") #energy
+    #Log(LOG_INFO,f"Counter: d.Type={d.Type} d.SubType={d.SubType}")
     if d.Type==85:  #Rain meter: sValue=RainRate*100;Rainmm
         rainRate=int(float(sv[0]))
         rainMM=float(sv[1])
@@ -1070,8 +1082,14 @@ def updateCounter(Devices, d, value, value2):
     elif d.SubType==28: #Incremental counter => sValue does not have "power;energy" 
         if (counter>0):
             # Domoticz works in this way: set a value to sValue, and it automatically add it to the current value of counter
-            # TODO: manage DIVIDER= parameter ?
-            d.Update(nValue=0, sValue=str(counter)) #problem when domoticz restarts and a divisor was set in the Domoticz counter interface
+            # Use A and B to create a linear relation with pulse
+            v=getOpt(d,"A=")
+            a=float(v) if (v!="false") else 1
+            v=getOpt(d,"B=")
+            b=float(v) if (v!="false") else 0
+            value=round(a*counter+b, 6)
+            Log(LOG_DEBUG,f"Counter incremental: A={a}, B={b}, counter={counter}, value={value} current_sValue={d.sValue}")
+            d.Update(nValue=0, sValue=str(value)) #problem when domoticz restarts and a divisor was set in the Domoticz counter interface
     elif (d.SubType==29): #kWh
         power=int(float(sv[0]))
         energy=float(sv[1])
@@ -1421,6 +1439,19 @@ def decode(Devices):
                                                         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET3, ((setStartPower>>8)&0xff), (setStartPower&0xff)], TX_RETRY,0) 
                                                         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET4, ((setStopTime>>8)&0xff), (setStopTime&0xff)], TX_RETRY,0) 
                                                         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET5, ((setAutoStart>>8)&0xff), (setAutoStart&0xff)], TX_RETRY,0) 
+                                                        # Check if EV MAXCURRENT device exists, with DeviceID=Hxxxx_P0018
+                                                        evmaxcurrentDeviceID=deviceID[0:7]+'0104'  #SUBCMD_SET for port 4
+                                                        found=0
+                                                        for unit in Devices:
+                                                            if Devices[unit].DeviceID==evmaxcurrentDeviceID:
+                                                                found=1
+                                                                break
+                                                        if found==0:    #Create evmaxcurrent device
+                                                            evmaxcurrentDevID="{:x}.{:x}".format(frameAddr, 0x104)  # 0x103 => SUBCMD_SET for port number 4
+                                                            Log(LOG_INFO,f"Add virtual device EV MaxCurrent with DeviceID={evmaxcurrentDeviceID}")
+                                                            Domoticz.Device(Name="("+evmaxcurrentDevID+") EV MaxCurrent", TypeName="Setpoint", Type=242, Subtype=1, Options={'ValueStep':'1', 'ValueMin':'6', 'ValueMax':'32', 'ValueUnit':'A'}, DeviceID=evmaxcurrentDeviceID, Unit=UnitFree, Description=f"ID={evmaxcurrentDevID},SETPOINT,TypeName=Setpoint,DESCR=EV Max Current").Create()
+                                                            Devices[UnitFree].Update(nValue=16, sValue="16", Used=1)
+                                                            unit=getDeviceUnit(Devices,1)   # find another free Unit to create EV Mode
                                                 elif (portOpt==PORTOPT_DIMMER):
                                                     typeName="Dimmer"
                                                     Log(LOG_INFO,f"DIMMER, portName={portName}")
@@ -1734,7 +1765,7 @@ def send(Devices, SerialConn):
                     else:
                         txbuffer.append((cmd|cmdAck|int((cmdLen+1)/2)))   #cmdLen field is the number of cmd payload/2, so if after cmd there are 3 or 4 bytes, cmdLen field must be 2 (corresponding to 4 bytes)
                         txbufferIndex+=1
-                    txbuffer.append(port)
+                    txbuffer.append(port&0xff)
                     txbufferIndex+=1
                     for i in range(0,cmdLen-1):
                         txbuffer.append((args[i]&0xff))

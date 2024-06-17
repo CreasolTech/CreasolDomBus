@@ -3,9 +3,9 @@
 # Author: creasol https://creasol.it
 #
 """
-<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.3.6" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://www.creasol.it/domotics">
+<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.3.7" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://www.creasol.it/domotics">
     <description>
-        <h2>Creasol DomBus plugin - Rev.1.3.6</h2><br/>
+        <h2>Creasol DomBus plugin - Rev.1.3.7</h2><br/>
         RS485 bus protocol used to connect Domoticz controller (Raspberry PI, Linux, Windows, ...) to one or more Creasol DomBus* modules.<br/>
         Useful to expand Domoticz I/O/S: digital inputs, ultrasonic distance senrsors, 230Vac inputs, 12/24V inputs, digital output, power-optimized relays, buzzer, blinds/roller shutters, LEDs, temperature and relative humidity sensors, Led stripes, ...<br/>
         <h3>Supported modules:</h3>
@@ -132,8 +132,8 @@ class BasePlugin:
                 Devices[Unit].Update(nValue=0, sValue=str(Level))
             else:
                 Devices[Unit].Update(nValue=int(nv), sValue=str(Level))
-        elif (Devices[Unit].SwitchType==18): #selector
-            Devices[Unit].Update(nValue=Level, sValue=str(Level))
+        elif Devices[Unit].SwitchType==18 or Devices[Unit].Type==242: #selector or Setpoint
+            Devices[Unit].Update(nValue=int(Level), sValue=str(Level))
         else:
             Devices[Unit].Update(nValue=newstate, sValue=Command)
         return True
@@ -150,7 +150,7 @@ class BasePlugin:
         dombus.heartbeat(Devices)
         return
     def onDeviceModified(self, Unit): #called when device is modified by the domoticz frontend (e.g. when description or name was changed by the user)
-        Domoticz.Debug("Device description="+Devices[Unit].Description)
+        Domoticz.Log("onDeviceModified: device description="+Devices[Unit].Description)
         # parse configuration in the device Description...
         deviceID=Devices[Unit].DeviceID
         hwaddr="0x"+deviceID[1:5]

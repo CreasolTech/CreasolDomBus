@@ -7,6 +7,29 @@ TODO:
 Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works) 
 
 Creasol DomBus ChangeLog
+1.3.7 2024-06-16 Requires Domoticz Beta 2023/2 dd18-9-2023 or next
+	EVSE: added a virtual device "EV MaxCurrent" (TypeName=Setpoint) associated to the EVMAXCURRENT 
+	parameter that permits to set the maximum current easily.
+	This parameter is useful during the Summer when Grid Voltage is very high
+	and lead to solar inverter power limiting.
+	To avoid this trouble, it's possible to charge the vehicle in Solar mode, 
+	setting a small current (for example 12A), just to prevent inverter power
+	limiting and also prevening EV battery charging too quickly.
+	
+	For old installation, to have the new EV Maxcurrent device creation, 
+	1. update the Creasol DomBus plugin 
+	2. Setup -> Hardware, select DomBus plugin, and click on Update
+	3. Enter Switches panel, select "EV Mode" device, copy the description
+	   text in the clipboard (or file), click on Delete button to remove it
+	4. Press the UP and DOWN button on the DomBusEVSE module 
+
+	The EV Maxcurent can be updated manually, or by a script (for example
+	a Lua script that checks for battery SoC, and if it's low sets the
+	EV MaxCurrent to 16 or 32A, while if SoC is high (battery almost full) 
+	sets EV MaxCurrent to a lower value.
+	Lua example: set MaxCurrent to 10A
+	commandArray[#commandArray+1]={['UpdateDevice']=tostring(otherdevices_idx['dombus - (ffe3.104) EV MaxCurrent'])..'|1|10'}
+
 1.3.6 2024-02-29
 	Added option EV3PSELECT, for DomBusEVSE module on device RL2, to permit 
 	1P or 3P EV charging using 2x contactors (2P 40A) connected to RLEV and
