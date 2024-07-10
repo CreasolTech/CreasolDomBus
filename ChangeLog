@@ -7,6 +7,15 @@ TODO:
 Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works) 
 
 Creasol DomBus ChangeLog
+
+1.3.8 2024-07-09
+	Added PULSE3 and PULSEUP3 keywords for DCMD command (execute a command
+	when the button is pushed for 3-3.9 seconds. Useful with DomBusTH that now
+	transmit a short white flash every second, while the button is pushed, to
+	distinguish PULSE1, PULSE2, PULSE3, PULSE4.
+	PULSEUP3 is the keyword for twinbutton UP (double button UP/DOWN connected
+	to a single I/O, with external 4k7 resistor).
+
 1.3.7 2024-06-16 Requires Domoticz Beta 2023/2 dd18-9-2023 or next
 	EVSE: added a virtual device "EV MaxCurrent" (TypeName=Setpoint) associated to the EVMAXCURRENT 
 	parameter that permits to set the maximum current easily.

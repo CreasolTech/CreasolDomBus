@@ -193,7 +193,9 @@ DCMD_IN_EVENTS={
         "PULSEUP1": 11,
         "PULSEUP2": 12,
         "PULSEUP4": 13,
-        "MAX":      14,      #max number of events
+        "PULSE3":   14,
+        "PULSEUP3": 15,
+        "MAX":      16,      #max number of events
         }
 
 DCMD_OUT_CMDS={
@@ -316,16 +318,9 @@ def dump(protocol, buffer,frameLen,direction):
     #buffer=frame buffer
     #frameLen=length of frame in bytes
     #direction="RX" or "TX"
-    if (protocol==1 or protocol==0):
-        f="P:1 "
-        fl=frameLen if (frameLen<=len(buffer)) else len(buffer) #manage the case that frame is received only partially
-        for i in range(0, fl):
-            f+="%.2x " % int(buffer[i])
-        if protocol==0:
-            Log(LOG_WARN,direction+" frame: "+f)
-        else:
-            Log(LOG_DUMP,direction+" frame: "+f)
-    elif (logLevel>=LOG_INFO):
+    if (logLevel<LOG_INFO): #in case of DCMD command, use Log(LOG_INFO,"") to transmit DCMD frame information
+        return
+    if protocol!=1 and int(buffer[0])==0x3a: # protocol 2 preamble
         f="P:2 "
         f+="%.2x " % int(buffer[0])
         f+="%.4x " % (int(buffer[3])*256+int(buffer[4]))
@@ -372,6 +367,16 @@ def dump(protocol, buffer,frameLen,direction):
             Log(LOG_INFO,direction+" frame: "+f)
         else:
             Log(LOG_DUMP,direction+" frame: "+f)
+    else:   # transmit data without parsing, as protocol=1
+        f="P:1 "
+        fl=frameLen if (frameLen<=len(buffer)) else len(buffer) #manage the case that frame is received only partially
+        for i in range(0, fl):
+            f+="%.2x " % int(buffer[i])
+        if protocol==0:
+            Log(LOG_WARN,direction+" frame: "+f)
+        else:
+            Log(LOG_DUMP,direction+" frame: "+f)
+
     return
 
 def getDeviceID(frameAddr, port):
@@ -1569,7 +1574,7 @@ def decode(Devices):
                                     #cmd port arg1 arg2 arg3
                                     #analog value, distance, temperature, humidity, watt
                                     value=arg1*256+arg2
-                                    if (d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP]):
+                                    if d.Type==PORTTYPE[PORTTYPE_SENSOR_TEMP] and value!=0:
                                         if 'function' in d.Options:
                                             Ro=10000.0  # 20230703: float (was int)
                                             To=25.0
@@ -1686,7 +1691,7 @@ def decode(Devices):
         else:
             if (frameError==4): 
                 #invalid frame, to be discharged
-                Log(LOG_DEBUG,"Invalid frame, with short frameLen")
+                Log(LOG_DEBUG,"Invalid frame: short frameLen")
                 dump(1, rxbuffer, frameLen, "RXbad, low frameLen")
             elif (frameError==3): 
                 #not enough data in rxbuffer
@@ -1718,13 +1723,14 @@ def send(Devices, SerialConn):
         timeFromLastTx=ms-module[LASTTX]        #number of milliseconds since last TXed frame
         timeFromLastRx=sec-module[LASTRX]       #number of seconds since last RXed frame
         timeFromLastStatus=sec-module[LASTSTATUS]     #number of seconds since last TXed output status
-        protocol=module[LASTPROTOCOL]           # 1=old protocol, 2=new protocol
+        protocol=module[LASTPROTOCOL]           # 1=old protocol, 2=new protocol, 0=unknown: send frame with both protocols
         if (len(txQueue[frameAddr])>0):
             retry=module[LASTRETRY]                         #number of retris (0,1,2,3...): used to compute the retry period
             if (retry>TX_RETRY):
                 retry=TX_RETRY
             if (timeFromLastTx>(TX_RETRY_TIME<<(retry+1))):
                 #Log(LOG_DEBUG,"send(): frameAddr="+hex(frameAddr)+" protocol="+str(protocol)+" timeFromLastTx="+str(timeFromLastTx)+"ms timeFromLastRx="+str(timeFromLastRx)+"s lastStatus="+str(timeFromLastStatus)+"s")
+                # if protocol not defined and several retransmissions, then alternate protocol 1 to protocol 2
                 if (protocol==0 and retry>=TX_RETRY-5 and (retry&1)):
                     protocol=1  #protocol not defined: maybe it's a old device that does not transmit periodic status
                 #start txing
