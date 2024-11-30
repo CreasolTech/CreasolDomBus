@@ -108,6 +108,7 @@ PORTOPT_PULLDOWN=0x0004         #pulldown enabled
 #note: since version
 PORTOPT_SELECTOR=0x0002         #Custom port configured as a selection switch to show/set different values
 PORTOPT_DIMMER=0x0004           #Dimmer slide
+PORTOPT_LATCHING_RELAY=0x0008   #Latching relay, managed as normal On/Off switch
 PORTOPT_EV3PSELECT=0x00fe     #Relay 2 of EVSE module used to enable 3phase 
 PORTOPT_ADDRESS=0x0100          #Modbus device address
 PORTOPT_IMPORT_ENERGY=0x0102    #Total import energy in Wh*10 [32bit]
@@ -148,9 +149,11 @@ PORTOPTS={
         "INVERTED":0x0001,          # input or output is inverted (logic 1 means the corresponding GPIO is at GND
         "PULLUP":0x0002,
         "PULLDOWN":0x0004,
+
         # options for CUSTOM device only 
         "SELECTOR":0x0002,            # Selection switch
         "DIMMER":0x0004,            # Dimmer
+        "TOUCH":0x0006,             # Touch sensor
         "EV3PSELECT":0x00fe,      # EVSE 3PSELECT
         }
 
@@ -209,6 +212,8 @@ DCMD_OUT_CMDS={
         "MAX":      7,      #Max number of commands
         }
 
+DCMD_OUT_CMDS_Names=["None", "Off", "On", "Toggle", "Dimmer", "Down", "Up"]
+
 TYPENAME2TYPESUB={
         #Typename:      [Type, SubType, Switchtype]
         'Switch':       [244,73,0],
@@ -258,6 +263,7 @@ LOG_DUMPALL=6
 LOG_NAMES=["NONE: ","ERROR:","WARN: ","INFO: ","DEBUG:","DUMP: "]
 logLevel=LOG_NONE  #defaul log level: will be initialized by onStart()
 
+# PORTSDISABLED="/opt/domoticz/userdata/plugins/CreasolDomBus/portsDisabled.json"  # in case of domoticz working in a Docker
 PORTSDISABLED="plugins/CreasolDomBus/portsDisabled.json"
 
 counterTime={}  #record the last counter update
@@ -340,7 +346,7 @@ def dump(protocol, buffer,frameLen,direction):
                 f+='A-'
             if (cmd==CMD_CONFIG):
                 f+='CFG '
-                if (cmdAck and (int(buffer[i+1])&0xf0)):
+                if cmdAck and (int(buffer[i+1])&0xf0)==0xf0:
                     #whole port configuration => cmdLen without any sense
                     cmdLen=frameLen - FRAME_HEADER2 - 2 #force cmdLen to the whole frame
             elif (cmd==CMD_SET):
@@ -556,9 +562,7 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
     d=Devices[unit]
     deviceID=d.DeviceID
     #add command in the queue
-    Log(LOG_DEBUG,f"Type={d.Type} SubType={d.SubType} Name={d.Name} Command={Command} Level={Level} Hue={Hue}")
-    if (not hasattr(d,'SwitchType')): 
-        Log(LOG_DEBUG,f"Type={d.Type} SubType={d.SubType} Name={d.Name} Command={Command} Level={Level} Hue={Hue}")
+    Log(LOG_DEBUG,f"Type={d.Type} SubType={d.SubType} SwitchType={d.SwitchType} Name={d.Name} Command={Command} Level={Level} Hue={Hue} frameAddr={frameAddr} port={port}")
 
     if (port&0xff00)==0x100:    #SUBCMD_SET
         Log(LOG_DEBUG,f"Virtual device that sends SUBCMD_SET command: port={port&0xff} Level={Level}")
@@ -572,7 +576,7 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
             if (Command=='Off'):
                 txQueueAdd(frameAddr,CMD_SET,2,0,port,[0],TX_RETRY,1) #Level: from 0 to 20 = 100%
             else:
-                if (re.search('OUT_ANALOG|CUSTOM.DIMMER',d.Description)):
+                if (re.search('OUT_ANALOG|CUSTOM.*DIMMER',d.Description)):
                     txQueueAdd(frameAddr,CMD_SET,2,0,port,[int(Level)],TX_RETRY,1) #Level: from 0 to 100 = 100% (1% step)
                     #Log(LOG_INFO,f"Dimmer level set to {Level} by parseCommand()")
                 else:
@@ -597,6 +601,7 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
             #newstate=0 => STOP. newstate&0x80 => open for newstate&0x7f seconds, else close for newstate&0x7f seconds
             txQueueAdd(frameAddr,CMD_SET,2,0,port,[newstate],TX_RETRY,1) 
         else: #normal switch
+            Log(LOG_DEBUG, f"Sending command: txQueueAdd({frameAddr},CMD_SET,2,0,{port},{[newstate]},{TX_RETRY},1)")
             txQueueAdd(frameAddr,CMD_SET,2,0,port,[newstate],TX_RETRY,1)
     elif d.Type==243:
         if d.SubType==29:  #kWh
@@ -674,6 +679,9 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             setOptNames+=opt+","
         elif optu[:4]=="CAL=":       # calibration value: should be expressed as integer (e.g. temperatureOffset*10)
             setCal=int(float(opt[4:])*10) 
+        elif optu[:5]=="INIT=":       # calibration value: should be expressed as integer
+            setCal=int(float(opt[5:])) 
+            setOptNames+=opt+","
         elif optu[:9]=="TYPENAME=":
             typeName=opt[9:]
             setOptNames+=opt+","
@@ -1384,6 +1392,8 @@ def decode(Devices):
                                                             Options={"LevelNames": "0ff|On|HiCurr|LoVolt|HiDiss|HiDissLoVolt", "LevelActions": "", "LevelOffHidden": "False", "SelectorStyle": "0"}
                                                     elif (portOpt==PORTOPT_DIMMER):
                                                         typeName="Dimmer"
+                                                    elif portOpt==PORTOPT_LATCHING_RELAY:
+                                                        typeName="Switch"
                                                     elif (portOpt==PORTOPT_ADDRESS):
                                                         typeName="Text"
                                                     elif (portOpt==PORTOPT_IMPORT_ENERGY or portOpt==PORTOPT_EXPORT_ENERGY):
@@ -1551,7 +1561,7 @@ def decode(Devices):
                                         if (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
                                             d.Update(nValue=int(arg1), sValue=str(arg1))
                                         elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-                                            nValue=0 if arg1==0 else 1
+                                            nValue=0 if arg1==0 else 1  # Already tested nValue=2 when level between 1 and 99%: same behaviour of nValue=1 
                                             d.Update(nValue=nValue, sValue=str(arg1))
                                         else: #normal switch
                                             if (d.nValue!=int(arg1) or d.sValue!=stringval):
@@ -1668,9 +1678,8 @@ def decode(Devices):
                                             d.Update(nValue=power, sValue=stringval)
                                         #txQueueAdd(frameAddr,CMD_SET,7,CMD_ACK,port,[arg1,arg2,arg3,arg4,arg5,arg6,0],1,1)
                                         txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1) #limit the number of data in ACK to cmd|ACK + port
-                        elif (cmd==CMD_DCMD): # DCMD command addressed to me? deactivate/activate/toggle a scene or groupa
+                        elif cmd==CMD_DCMD and arg1<DCMD_OUT_CMDS['MAX']: # DCMD command addressed to me? deactivate/activate/toggle a scene or group
                             Log(LOG_INFO,f"Request to activate or deactivate scene/group with idx={port}")
-                            Log(LOG_INFO,str(Domoticz))
                             switchcmd=''
                             if arg1==1:
                                 switchcmd='Off'
@@ -1683,6 +1692,10 @@ def decode(Devices):
                                 r=requests.get(url = JSONURL, params = PARAMS)
                                 # data = r.json()
                             txQueueAdd(frameAddr, cmd, 2, CMD_ACK, port, [arg1], 1, 1)
+                    else:   # frameaddr==0xffff or dstaddr!=0 => command to another device
+                        if cmd==CMD_DCMD and arg1<DCMD_OUT_CMDS['MAX']: #DCMD command addressed to another device
+                            if logLevel>=LOG_INFO and logLevel<LOG_DUMP:
+                                Log(LOG_INFO,f"DCMD command from {'%#04x' % frameAddr} to {'%#04x' % dstAddr}: port={port} cmd={DCMD_OUT_CMDS_Names[arg1]} {arg2*256+arg3}")
 
                 frameIdx=frameIdx+cmdLen+1
             #remove current frame from buffer

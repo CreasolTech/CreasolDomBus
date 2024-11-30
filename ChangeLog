@@ -16,19 +16,26 @@ Creasol DomBus ChangeLog
 	PULSEUP3 is the keyword for twinbutton UP (double button UP/DOWN connected
 	to a single I/O, with external 4k7 resistor).
 
+	If Debug level is Verbose or Debug, now any DCMD command is logged (both
+	DCMD commands to the controller, to activate a scene/group, and DCMD
+	commands to other DomBus devices in the same bus).
+
 1.3.7 2024-06-16 Requires Domoticz Beta 2023/2 dd18-9-2023 or next
 	EVSE: added a virtual device "EV MaxCurrent" (TypeName=Setpoint) associated to the EVMAXCURRENT 
-	parameter that permits to set the maximum current easily.
+	parameter that permits to set the maximum charging current easily.
 	This parameter is useful during the Summer when Grid Voltage is very high
 	and lead to solar inverter power limiting.
 	To avoid this trouble, it's possible to charge the vehicle in Solar mode, 
-	setting a small current (for example 12A), just to prevent inverter power
-	limiting and also prevening EV battery charging too quickly.
+	to use only solar energy, setting a small current (for example 12A in
+	single phase, or 6A in three phase), just to reduce the inverter voltage
+	preventing inverter power limiting and also prevening EV battery charging
+	too quickly when the State-of-Charge is high.
 	
-	For old installation, to have the new EV Maxcurrent device creation, 
+	For system where the EVSE module is already active, to get the new EV
+	Maxcurrent device created, 
 	1. update the Creasol DomBus plugin 
 	2. Setup -> Hardware, select DomBus plugin, and click on Update
-	3. Enter Switches panel, select "EV Mode" device, copy the description
+	3. Enter Switches panel, select "EV Mode" device, save the description
 	   text in the clipboard (or file), click on Delete button to remove it
 	4. Press the UP and DOWN button on the DomBusEVSE module 
 
@@ -36,13 +43,17 @@ Creasol DomBus ChangeLog
 	a Lua script that checks for battery SoC, and if it's low sets the
 	EV MaxCurrent to 16 or 32A, while if SoC is high (battery almost full) 
 	sets EV MaxCurrent to a lower value.
-	Lua example: set MaxCurrent to 10A
-	commandArray[#commandArray+1]={['UpdateDevice']=tostring(otherdevices_idx['dombus - (ffe3.104) EV MaxCurrent'])..'|1|10'}
+	Lua example: set MaxCurrent to 12A
+	commandArray[#commandArray+1]={['UpdateDevice']=tostring(otherdevices_idx['dombus - (ffe3.104) EV MaxCurrent'])..'|1|12'}
 
 1.3.6 2024-02-29
 	Added option EV3PSELECT, for DomBusEVSE module on device RL2, to permit 
 	1P or 3P EV charging using 2x contactors (2P 40A) connected to RLEV and
 	RL2.
+	Connection: Line----- RL EV --+-- RL2 --+
+	                              C         C      Contactor 1 and
+								  1         2      contactor 2 coils
+	            Neutral-----------+---------+                  
 	If RL2 is configured as EV3PSELECT, it's possible to 
 	1. stop charging (EVMode=Off)
 	2. enable RL2 device
@@ -53,6 +64,7 @@ Creasol DomBus ChangeLog
 	2. disable RL2 device
 	3. start charging (EVMode=Solar or 25% or more) to activate only
 		the contactor driven by RL EV, enabling single-phase charging.
+	
 
 
 1.3.5 2024-01-11
