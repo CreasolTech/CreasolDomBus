@@ -713,7 +713,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         elif optu[:11]=="EVMAXPOWER=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
             setMaxPower=int(float(opt[11:]))
             if (setMaxPower<1000 or setMaxPower>25000):
-                setMaxPower=3300   # default value
+                setMaxPower=6000   # default value
             setOptNames+=f"EVMAXPOWER={setMaxPower},"
         elif optu[:12]=="EVMAXPOWER2=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
             setMaxPower2=int(float(opt[12:]))
@@ -1440,7 +1440,7 @@ def decode(Devices):
                                                         Options={"LevelNames": "Off|Solar|25%|50%|75%|100%|Man", "LevelActions": "", "LevelOffHidden": "False", "SelectorStyle": "0"}
                                                         typeName="Selector Switch"
                                                         setMaxCurrent=16
-                                                        setMaxPower=3300
+                                                        setMaxPower=6000
                                                         setStartPower=1200
                                                         setStopTime=90
                                                         setAutoStart=1

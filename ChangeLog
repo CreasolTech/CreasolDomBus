@@ -8,6 +8,9 @@ Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works)
 
 Creasol DomBus ChangeLog
 
+1.3.9 2024-12-01
+	DomBusEVSE: now default EVMAXPOWER value is set to 6000 instead of 3300
+
 1.3.8 2024-07-09
 	Added PULSE3 and PULSEUP3 keywords for DCMD command (execute a command
 	when the button is pushed for 3-3.9 seconds. Useful with DomBusTH that now
