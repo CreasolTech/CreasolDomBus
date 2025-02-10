@@ -38,7 +38,7 @@ import math
 import requests     # needed to call a scene/group by a DCMD command from a module
 
 #if 1, when a module does not transmit for more than 15 minutes (MODULE_ALIVE_TIME), it will appear in red (TimedOut)
-PROTOCOL1_WITH_PERIODIC_TX=0    # set to 1 if all existing modules transmit their status periodically (oldest modules with protocol 1 did not)
+PROTOCOL1_WITH_PERIODIC_TX=1    # set to 1 if all existing modules transmit their status periodically (oldest modules with protocol 1 did not)
 
 #some constants
 FRAME_LEN_MIN=7
@@ -96,6 +96,7 @@ PORTTYPE_SENSOR_DISTANCE=0x2000 #distance measurement (send a pulse and measure 
 PORTTYPE_SENSOR_TEMP=0x4000     #Temperature
 PORTTYPE_SENSOR_HUM=0x8000      #Relative Humidity
 PORTTYPE_SENSOR_TEMP_HUM=0xc000 #Temp+Hum
+PORTTYPE_SENSOR_ALARM=0x20000   #Triple biased alarm sensor
 PORTTYPE_OUT_BLIND=0x01000000   #Blind output, close command (next port of DomBus device will be automatically used as Blind output, open command)
 PORTTYPE_OUT_ANALOG=0x02000000  #0-10V output, 1% step, 0-100
 PORTTYPE_CUSTOM=0x80000000      #custom port with only 1 function
@@ -118,9 +119,9 @@ PORTOPT_POWER_FACTOR=0x0108     #Power factore 1/1000
 PORTOPT_FREQUENCY=0x010a        #Frequency Hz/100
 PORTOPT_CURRENT=0x010c
 
-PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_OUT_FLASH:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_IN_COUNTER:243, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_OUT_BLIND:244, PORTTYPE_OUT_ANALOG:244}
+PORTTYPE={PORTTYPE_OUT_DIGITAL:244, PORTTYPE_OUT_RELAY_LP:244, PORTTYPE_OUT_LEDSTATUS:244, PORTTYPE_OUT_DIMMER:244, PORTTYPE_OUT_BUZZER:244, PORTTYPE_OUT_FLASH:244, PORTTYPE_IN_AC:244, PORTTYPE_IN_DIGITAL:244, PORTTYPE_IN_ANALOG:244, PORTTYPE_IN_TWINBUTTON:244, PORTTYPE_IN_COUNTER:243, PORTTYPE_SENSOR_HUM:81, PORTTYPE_SENSOR_TEMP:80, PORTTYPE_SENSOR_TEMP_HUM:82, PORTTYPE_SENSOR_DISTANCE:243, PORTTYPE_SENSOR_ALARM:244, PORTTYPE_OUT_BLIND:244, PORTTYPE_OUT_ANALOG:244}
 
-PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Selector Switch", PORTTYPE_OUT_FLASH:"Selector Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_IN_COUNTER:"Counter Incremental", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_ANALOG:"Dimmer", PORTTYPE_CUSTOM:"Dimmer"}
+PORT_TYPENAME={PORTTYPE_OUT_DIGITAL:"Switch", PORTTYPE_OUT_RELAY_LP:"Switch", PORTTYPE_OUT_LEDSTATUS:"Switch", PORTTYPE_OUT_DIMMER:"Dimmer", PORTTYPE_OUT_BUZZER:"Selector Switch", PORTTYPE_OUT_FLASH:"Selector Switch", PORTTYPE_IN_AC:"Switch", PORTTYPE_IN_DIGITAL:"Switch", PORTTYPE_IN_ANALOG:"Voltage", PORTTYPE_IN_TWINBUTTON:"Selector Switch", PORTTYPE_IN_COUNTER:"Counter Incremental", PORTTYPE_SENSOR_HUM:"Humidity", PORTTYPE_SENSOR_TEMP:"Temperature", PORTTYPE_SENSOR_TEMP_HUM:"Temp+Hum", PORTTYPE_SENSOR_DISTANCE:"Distance", PORTTYPE_SENSOR_ALARM:"Switch", PORTTYPE_OUT_BLIND:"Switch", PORTTYPE_OUT_ANALOG:"Dimmer", PORTTYPE_CUSTOM:"Dimmer"}
 
 PORTTYPES={
         "DISABLED":0x0000,          # port not used
@@ -139,6 +140,7 @@ PORTTYPES={
         "TEMPERATURE":0x4000,       # temperature
         "HUMIDITY":0x8000,          # relative humidity
         "TEMP+HUM":0xc000,          # temp+hum
+        "SENSOR_ALARM":0x20000,     # Triple biased alarm sensor
         "OUT_BLIND":0x01000000,     # blind with up/down/stop command
         "OUT_ANALOG":0x02000000,    # 0-10V output, 0-100, 1% step
         "CUSTOM":0x80000000,        # Custom port (enabled only if PORTOPT is specified)
@@ -174,6 +176,7 @@ PORTTYPENAME={  #Used to set the device TypeName
         "TEMPERATURE":"Temperature",
         "TEMP+HUM":"Temp+Hum",
         "DISTANCE":"Distance",
+        "SENSOR_ALARM": "Switch",
 #        "OUT_BLIND":"Venetian Blinds EU", #not available in domoticz yet. hardware/plugins/PythonObjects.cpp must be updated!
         "OUT_BLIND":"Switch",
         "OUT_ANALOG":"Dimmer",
@@ -625,6 +628,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     setCal=32768    #calibration offset 32768=ignore
     setTypeName=''
     typeName=''
+    setSwitchtype=None
     setOptDefined=0
     setTypeDefined=0
     setDisableDefined=0
@@ -639,6 +643,10 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     setStartPower=""
     setStopTime=""
     setAutoStart=""
+    setPar1=""
+    setPar2=""
+    setPar3=""
+    setPar4=""
     Options=Devices[Unit].Options
     setOptions={}
     setOptionsChanged=0
@@ -657,7 +665,9 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             setTypeDefined=1            #setTypeDefined=1
             setTypeName=optu             #setTypeName=DISTANCE
             typeName=PORTTYPENAME[optu]  #typeName=Temperature
-            Log(LOG_DEBUG,"opt="+str(opt)+" setType="+str(PORTTYPES[optu])+" typeName="+str(PORTTYPENAME[optu]))
+            if setType==PORTTYPE_SENSOR_ALARM:
+                setSwitchtype=11    #Door contact
+            Log(LOG_DEBUG,"opt="+str(opt)+" setType="+str(PORTTYPES[optu])+" typeName="+str(PORTTYPENAME[optu])+" Switchtype="+str(setSwitchtype))
         elif optu in PORTOPTS:
             if (optu=="NORMAL"):
                 setOpt=0
@@ -704,6 +714,26 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
                 # Send command to program this device to the new address
                 if (addr>=1 and addr<=5): 
                     setNewAddr=addr
+        elif optu[:5]=="PAR1=":
+            setPar1=int(optu[5:])
+            if setPar1>65535: 
+                setPar1=65535
+            setOptNames+=opt+","
+        elif optu[:5]=="PAR2=":
+            setPar2=int(optu[5:])
+            if setPar2>65535: 
+                setPar2=65535
+            setOptNames+=opt+","
+        elif optu[:5]=="PAR3=":
+            setPar3=int(optu[5:])
+            if setPar3>65535: 
+                setPar3=65535
+            setOptNames+=opt+","
+        elif optu[:5]=="PAR4=":
+            setPar4=int(optu[5:])
+            if setPar4>65535: 
+                setPar4=65535
+            setOptNames+=opt+","
         elif optu[:13]=="EVMAXCURRENT=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
             setMaxCurrent=int(float(opt[13:]))
             if (setMaxCurrent<6 or setMaxCurrent>36):
@@ -996,8 +1026,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     Options.update(setOptions)
 
 #        if (setOptionsChanged>0):
-    Log(LOG_INFO,"TypeName='"+str(typeName)+"', nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(Options))
-    Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
+    Log(LOG_INFO,"TypeName='"+str(typeName)+"', Switchtype="+str(setSwitchtype)+", nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(Options))
+    Devices[Unit].Update(TypeName=typeName, Switchtype=setSwitchtype, nValue=nValue, sValue=sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
     if (setCal!=32768): #new calibration value
         if (setCal<0): 
             setCal+=65536
@@ -1022,6 +1052,14 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET9, setWaitTime>>8, setWaitTime&0xff], TX_RETRY,0) 
     if (setMeterType!=""): # EV Mode: set energy meter type (0=DDS238 ZN/S, 1=DTS238 ZN/S)
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET10, setMeterType>>8, setMeterType&0xff], TX_RETRY,0) 
+    if (setPar1!=""): # Par array 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, setPar1>>8, setPar1&0xff], TX_RETRY,0) 
+    if (setPar2!=""): # Par array 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET2, setPar2>>8, setPar2&0xff], TX_RETRY,0) 
+    if (setPar3!=""): # Par array 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET3, setPar3>>8, setPar3&0xff], TX_RETRY,0) 
+    if (setPar4!=""): # Par array 
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET4, setPar4>>8, setPar4&0xff], TX_RETRY,0) 
         
     return
 
@@ -1077,7 +1115,7 @@ def updateCounter(Devices, d, value, value2):
     sv=d.sValue.split(';')
     if (len(sv)!=2):
         if d.SubType==29 or d.Type==85:
-            Log(LOG_INFO,"Counter kWh or Rain: sValue has not 2 items: Name="+d.Name+" sValue="+str(d.sValue)+" len(sv)="+str(len(sv)))
+            Log(LOG_WARN,"Counter kWh or Rain: sValue has not 2 items: Name="+d.Name+" sValue="+str(d.sValue)+" len(sv)="+str(len(sv)))
         sv[0]="0" #power
         sv.append("0") #energy
     #Log(LOG_INFO,f"Counter: d.Type={d.Type} d.SubType={d.SubType}")
@@ -1476,6 +1514,8 @@ def decode(Devices):
                                                 elif portType==PORTTYPE_IN_TWINBUTTON:
                                                     if "LevelNames" not in Options:
                                                         Options["LevelNames"]="Off|Down|Up"
+                                                elif portType==PORTTYPE_SENSOR_ALARM:
+                                                    Switchtype=11   # Door Contact
                                                 elif portType==PORTTYPE_OUT_BLIND:
                                                     if "LevelNames" not in Options:
                                                         Options["LevelNames"]="Stop|Down|Up"
@@ -1489,7 +1529,7 @@ def decode(Devices):
                                                         sValue="0;0"
 
                                             Log(LOG_INFO,"Add device "+deviceID+" deviceAddr="+deviceAddr+": "+portName+" portType="+hex(portType)+" portOpt="+str(portOpt)+" Description="+descr)
-                                            Log(LOG_INFO,"Name=("+devID+") "+portName+", TypeName="+typeName+", DeviceID="+deviceID+", Unit="+str(UnitFree)+" ,Options="+str(Options))
+                                            Log(LOG_INFO,"Name=("+devID+") "+portName+", TypeName="+typeName+", Switchtype="+Switchtype+", DeviceID="+deviceID+", Unit="+str(UnitFree)+" ,Options="+str(Options))
                                             if (Switchtype!=''): 
                                                 Domoticz.Device(Name="("+devID+") "+portName, TypeName=typeName, Switchtype=Switchtype, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
                                             else:
@@ -1555,15 +1595,23 @@ def decode(Devices):
                                 if (cmdLen==2): # cmd, port, arg1
                                     value=arg1  #8bit
                                     stringval='Off' if arg1==0 else 'On'
-                                    #update device only if was changed
-                                    #Log(LOG_DEBUG,"devID="+devID+" d.Type="+str(d.Type)+" d.SwitchType="+str(d.SwitchType)+" nValue="+str(arg1)+" sValue="+str(arg1))
+                                    # update device only if was changed
+                                    Log(LOG_DEBUG,"devID="+devID+" d.Type="+str(d.Type)+" d.SwitchType="+str(d.SwitchType)+" nValue="+str(arg1)+" sValue="+stringval)
                                     if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
                                         if (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
                                             d.Update(nValue=int(arg1), sValue=str(arg1))
                                         elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
                                             nValue=0 if arg1==0 else 1  # Already tested nValue=2 when level between 1 and 99%: same behaviour of nValue=1 
                                             d.Update(nValue=nValue, sValue=str(arg1))
+                                        elif (hasattr(d,'SwitchType') and d.SwitchType==11): #door contact: note that if nValue==3 => door is closed even if sValue==On
+                                            if value==2:
+                                                stringval="Off"  # masked
+                                                value=3 # set to 3 to get Door closed icone
+                                            elif value==3:
+                                                value=2    # tamper: set to 2 to get Door open icon
+                                            d.Update(nValue=value, sValue=stringval)
                                         else: #normal switch
+                                            # Log(LOG_DEBUG, f"Set command for normal switch {devID}: nValue={arg1}, sValue={stringval}")
                                             if (d.nValue!=int(arg1) or d.sValue!=stringval):
                                                 d.Update(nValue=int(arg1), sValue=stringval)
                                     elif (d.Type==243 or d.Type==85):   # counter or rain, old modules sending only the incremental counter without the old confirmed counter
@@ -1636,7 +1684,7 @@ def decode(Devices):
                                             v=getOpt(d,"B=")
                                             b=float(v) if (v!="false") else 0
                                             Value=a*value+b
-                                        if (d.sValue!=str(Value)):
+                                        if (Value==0 or d.sValue!=str(Value)):
                                             d.Update(nValue=int(Value), sValue=str(Value))
                                         #Log(LOG_DEBUG,"Value="+str(a)+"*"+str(value)+"+"+str(b)+"="+str(Value))
                                     #txQueueAdd(frameAddr,CMD_SET,3,CMD_ACK,port,[arg1,arg2,arg3],1,1)
@@ -1872,15 +1920,20 @@ def heartbeat(Devices):
         if (Devices[u].Type==243 and Devices[u].SubType==29): #kWh meter
             ms=int(time.time()*1000)
             msdiff=ms-counterTime[u] #elapsed time since last value
-            if (msdiff>6000): 
+            if msdiff>6000: 
                 # start power decay only if more than 6s since last pulse (DomBus in counter mode transmits no more than 1 frame per 2s)
                 sv=Devices[u].sValue.split(';')
                 p=int(float(sv[0]))
-                if (p>0):
+                if msdiff>=36000000: #more than 1 hour since last pulse => P=0W
+                    pc=0    # computed power = 0
+                else:   #power was reduced
                     pc=int(3600000/msdiff)
-                    if (pc<p): #power was reduced
-                        sv=str(pc)+";"+sv[1]
-                        Devices[u].Update(nValue=0, sValue=sv)
+                if pc<=p:   # power decreases. Skip the eventually that power increases, caused by plugin reload
+                    if p>0: # do not log anything if pc is already 0
+                        Log(LOG_DEBUG,f"{Devices[u].Name} kWh meter timeout, power decay from {p} to {pc}")
+                    sv=str(pc)+";"+sv[1]
+                    Devices[u].Update(nValue=0, sValue=sv)
+
         elif Devices[u].Type==85: # rain meter => reset rain rate if no pulses since 10 minutes
             ms=int(time.time()*1000)
             msdiff=ms-counterTime[u] #elapsed time since last value
