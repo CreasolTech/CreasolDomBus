@@ -12,7 +12,7 @@ Protocol definition (in bytes):
         0xffff => broadcast
         1 => default slave address
 
-    length: payload lenght (from cmd1 to checksum, excluding checksum)    
+    length: payload length (from cmd1 to checksum, excluding checksum)    
 
     cmd: syntax: CCCC ALLL  where CCCC is the command family, A=1 when this is an acknowledge, LLL is the number of arguments for that command
     
@@ -986,9 +986,12 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         Log(LOG_WARN,f"Device {devID} does not support protocol #2 and DCMD commands: frameAddr={frameAddr} protocol={modules[frameAddr][LASTPROTOCOL]}")
     
     descr='ID='+devID+','+setTypeName+','+setOptNames if (setTypeDefined==1) else setOptNames
+
     # Now checking Options , removing bad ones
-    if typeName in TYPENAME2TYPESUB and Devices[Unit].Type!=TYPENAME2TYPESUB[typeName][0] and Devices[Unit].SubType!=TYPENAME2TYPESUB[typeName][1]:
+    Log(LOG_DEBUG,f"typeName={typeName}, Devices[Unit].Type={Devices[Unit].Type}, Devices[Unit].SubType={Devices[Unit].SubType}")
+    if typeName in TYPENAME2TYPESUB and (Devices[Unit].Type!=TYPENAME2TYPESUB[typeName][0] or Devices[Unit].SubType!=TYPENAME2TYPESUB[typeName][1]):
         # different typename from before
+        Log(LOG_DEBUG,"different typename from before")
         nValue=0
         sValue='0'
         if typeName!='Selector Switch':
@@ -1027,7 +1030,10 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
 
 #        if (setOptionsChanged>0):
     Log(LOG_INFO,"TypeName='"+str(typeName)+"', Switchtype="+str(setSwitchtype)+", nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(Options))
+    if setSwitchtype==None:
+        setSwitchtype=0
     Devices[Unit].Update(TypeName=typeName, Switchtype=setSwitchtype, nValue=nValue, sValue=sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
+    Log(LOG_DEBUG, "Device updated!")
     if (setCal!=32768): #new calibration value
         if (setCal<0): 
             setCal+=65536
