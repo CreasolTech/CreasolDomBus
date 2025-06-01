@@ -1904,7 +1904,7 @@ def send(Devices, SerialConn):
         # transmit only the output status of the older device, if last time I transmitted the status was at least PERIODIC_STATUS_INTERVAL seconds ago
         if (sec-olderTime > PERIODIC_STATUS_INTERVAL):
             modules[olderFrameAddr][LASTSTATUS]=sec+(olderFrameAddr&0x000f)   #set current time + extra seconds to avoid all devices been refresh together
-            #Log(LOG_DEBUG,"send(): Transmit outputs Status for "+hex(olderFrameAddr))
+            Log(LOG_DEBUG,"send(): Transmit outputs Status for "+hex(olderFrameAddr)) #DEBUG #DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
             txOutputsStatus(Devices, olderFrameAddr)
     return
 def heartbeat(Devices):
