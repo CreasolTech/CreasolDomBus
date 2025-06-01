@@ -537,7 +537,7 @@ def txOutputsStatus(Devices,frameAddr):
                 # output! get the port and output state
                 port=int("0x"+d.DeviceID[7:11],0)
                 if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-                    if (re.search("OUT_ANALOG|CUSTOM.SELECTOR",d.Description)):
+                    if (re.search("OUT_ANALOG|CUSTOM",d.Description)):
                         level=int(d.sValue) if d.nValue==1 else 0 #1% step
                     else:
                         level=int(int(d.sValue)/5) if d.nValue==1 else 0    #soft dimmer => 5% step
