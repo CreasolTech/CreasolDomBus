@@ -57,24 +57,6 @@ Then you can find the Creasol DomBus protocol in the **Setup -> Hardware panel**
 
 Now you're ready to connect one *DomBus* device to the RS485 bus, and check the new I/Os in the Switches panel or Setup -> Devices menu.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ***
 
 ## Creasol DomBus modules
@@ -92,21 +74,16 @@ Modules are available in two version:
 
 [Store website](https://store.creasol.it/domotics) - [Information website](https://www.creasol.it/domotics)
 
-### Youtube video showing DomBus modules 
-[![Creasol DomBus modules video](https://images.creasol.it/intro01_video.png)](https://www.creasol.it/DomBusVideo)
-
-
-
 ### DomBusEVSE - EVSE module to build a Smart Wallbox / EV charging station
-<a href="https://store.creasol.it/DomBusEVSE"><img src="https://images.creasol.it/creDomBusEVSE_plug_300.webp" alt="DomBusEVSE smart EVSE module to make a Smart Wallbox EV Charging station" style="float: left; margin-right: 2em;" align="left" /></a>
+<a href="https://store.creasol.it/DomBusEVSE"><img src="https://images.creasol.it/creDomBusEVSE_200.png" alt="DomBusEVSE smart EVSE module to make a Smart Wallbox EV Charging station" style="float: left; margin-right: 2em;" align="left" /></a>
 Complete solution to make a Smart EVSE, **charging the electric vehicle using only energy from renewable source (photovoltaic, wind, ...), or adding 25-50-75-100% of available power from the grid**.
 
-* **Single-phase and three-phase**, up to 32A (8kW or 22kW)
+* Single-phase and three-phases, up to 36A (8kW or 22kW)
 * Needs external contactor, RCCB (protection) and EV cable
 * Optional power meter to measure charging power, energy, voltage and power factor
 * Optional power meter to measure the power usage from the grid (not needed if already exists)
-* **Two max grid power thresholds** can be programmed: for example, in Italy who have 6kW contractual power can drain from the grid Max (6* 1.27)=7.6kW for max 90 minutes followed by (6* 1.1)=6.6kW for another 90 minutes: in this case **the EVSE module can drain ALL available power** when programmed to charge at 100% **minimizing the charge time and increasing the charging efficiency**.
-* **Works without the domotic controller** (stand-alone mode), and **can also work in *managed mode*, with an automation in the home automation system setting the charging current**
+* **Two max grid power thresholds** can be programmed: for example, in Italy who have 6kW contractual power can drain from the grid Max (6* 1.27)=7.6kW for max 90 minutes followed by (6* 1.1)=6.6kW for another 90 minutes. **The module can use ALL available power** when programmed to charge at 100%.
+* **Works without the domotic controller** (stand-alone mode), and **can also work with charging current set by the domotic controller (managed mode)**
 
 <br clear="all"/>
 
@@ -138,6 +115,7 @@ Very compact domotic module providing:
 * 1x 230V AC opto-isolated input to detect 230V and power outage, with **zero-detection to switch relays/loads minimizing in-rush current**
 * 4x I/O lines, configurable as analog/digital inputs, temperature/distance sensor, counter, meter, ...
 <br clear="all"/>
+
 
 ### DomBus23 - Domotic module with many functions
 <a href="https://store.creasol.it/DomBus23"><img src="https://images.creasol.it/creDomBus23_400.webp" alt="DomBus23 domotic module with many functions" style="float: left; margin-right: 2em; vertical-align: middle;" align="left" /></a>
@@ -190,11 +168,12 @@ DIN rail module, low profile, with **12 relays outputs and very low power consum
 
 ### DomBus37 - 12 inputs, 3 115/230Vac inputs, 3 relay outputs
 <a href="https://store.creasol.it/DomBus37"><img src="https://images.creasol.it/creDomBus37_400.webp" alt="DomBus37 domotic module with 12 inputs, 3 AC inputs, 3 relay outputs" style="float: left; margin-right: 2em; vertical-align: middle;" align="left" /></a>
-Module designed to **interface alarm sensors (magnetc contact sensors, PIRs, tampers): it's able to monitor mains power supply (power outage / blackout) and also have 3 relays outputs.**
-* 12x low voltage inputs (analog/digital inputs, buttons, alarm sensors, balanced double/triple biased alarm sensors,  counters, meters, temperature and distance sensors, ...)
+Module designed to be connected to alarm sensors (magnetc contact sensors, PIRs, tampers): it's able to monitor mains power supply (power outage / blackout) and also have 3 relays outputs.
+* 12x low voltage inputs (analog/digital inputs, buttons, alarm sensors, counters, temperature and distance sensors, ...)
 * 3x 115/230Vac optoisolated inputs
 * 2x relays SPST 5A
 * 1x relay SPST 10A
+* In12 port can be used to send power supply to an external siren, monitoring current consumption
 <br clear="all"/>
 
 ### DomBus38 - 12 inputs, 1 100-250Vac input, 6 relay outputs
@@ -232,6 +211,4 @@ Simple module with 2 relays, to be used with DomBus modules (like <a href="https
 * 1x I²C interface for sensors, extended I/Os and more)
 * 1x OneWire interface (DS18B20 or other 1wire sensors/devices)
 <br clear="all"/>
-
-
 

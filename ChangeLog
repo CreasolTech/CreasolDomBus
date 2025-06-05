@@ -8,6 +8,32 @@ Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works)
 
 Creasol DomBus ChangeLog
 
+1.3.10 2025-06-05
+	DomBusEVSE: new setpoint device EVMINVOLTAGE used to set the minimum
+	voltage to start charging, and voltage to keep during charging.
+	Useful when the EV battery is used to prevent overvoltages (with solar
+	inverter derating or shutdown), by charging the minimum current needed
+	to keep voltage below the overvoltage limit.
+	For example, set EVMINVOLTAGE to 248V for single phase or 430V for
+	threephase when EV SoC is almost full.
+	Set EVMINVOLTAGE to 207 o 380V to charge EV battery faster.
+
+	To use EVMINVOLTAGE feature, old versions of DomBusEVSE must be factory-upgraded
+	(free service, only shipping should be paid).
+	When the new version of DomBusEVSE is connected, use the following
+	procedure to create the new EVMINVOLTAGE device:
+	* upgrade Creasol DomBus plugin to the latest version
+	* open EV Mode device, using Edit button, and copy (in the clipboard) the configuration
+	  (device description)
+	* delete the EV Mode device by clicking on Delete button
+	* push buttons UP and DOWN on DomBusEVSE, to transmit current EV Mode
+	  status to Domoticz => both EV Mode and EV MinVoltage devices will be created
+	* add the EV Mode and EV MinVoltage devices to the roomplans, if needed
+	* open the EV Mode device from the Switches panel (click on Edit button)
+	  and restore the configuration (paste on the Description textarea)
+
+
+
 1.3.9 2024-12-01
 	DomBusEVSE: now default EVMAXPOWER value is set to 6000 instead of 3300
 

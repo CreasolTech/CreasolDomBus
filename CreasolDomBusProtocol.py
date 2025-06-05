@@ -1507,7 +1507,7 @@ def decode(Devices):
                                                         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET3, ((setStartPower>>8)&0xff), (setStartPower&0xff)], TX_RETRY,0) 
                                                         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET4, ((setStopTime>>8)&0xff), (setStopTime&0xff)], TX_RETRY,0) 
                                                         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET5, ((setAutoStart>>8)&0xff), (setAutoStart&0xff)], TX_RETRY,0) 
-                                                        # Check if EV MAXCURRENT device exists, with DeviceID=Hxxxx_P0018
+                                                        # Check if EV MAXCURRENT device exists, with DeviceID=Hxxxx_P0104
                                                         evmaxcurrentDeviceID=deviceID[0:7]+'0104'  #SUBCMD_SET for port 4
                                                         found=0
                                                         for unit in Devices:
@@ -1519,6 +1519,19 @@ def decode(Devices):
                                                             Log(LOG_INFO,f"Add virtual device EV MaxCurrent with DeviceID={evmaxcurrentDeviceID}")
                                                             Domoticz.Device(Name="("+evmaxcurrentDevID+") EV MaxCurrent", TypeName="Setpoint", Type=242, Subtype=1, Options={'ValueStep':'1', 'ValueMin':'6', 'ValueMax':'32', 'ValueUnit':'A'}, DeviceID=evmaxcurrentDeviceID, Unit=UnitFree, Description=f"ID={evmaxcurrentDevID},SETPOINT,TypeName=Setpoint,DESCR=EV Max Current").Create()
                                                             Devices[UnitFree].Update(nValue=16, sValue="16", Used=1)
+                                                            unit=getDeviceUnit(Devices,1)   # find another free Unit to create EV Mode
+                                                        # Check if EVMINVOLTAGE device exists, with DeviceID=Hxxxx_P010A
+                                                        evminvoltageDeviceID=deviceID[0:7]+'010A'  #SUBCMD_SET for port 10
+                                                        found=0
+                                                        for unit in Devices:
+                                                            if Devices[unit].DeviceID==evminvoltageDeviceID:
+                                                                found=1
+                                                                break
+                                                        if found==0:    #Create evminvoltage device
+                                                            evminvoltageDevID="{:x}.{:x}".format(frameAddr, 0x10A)  # 0x10A => SUBCMD_SET for port number 10 (EV Voltage)
+                                                            Log(LOG_INFO,f"Add virtual device EV MinVoltage with DeviceID={evminvoltageDeviceID}")
+                                                            Domoticz.Device(Name="("+evminvoltageDevID+") EV MinVoltage", TypeName="Setpoint", Type=242, Subtype=1, Options={'ValueStep':'1', 'ValueMin':'0', 'ValueMax':'500', 'ValueUnit':'V'}, DeviceID=evminvoltageDeviceID, Unit=UnitFree, Description=f"ID={evminvoltageDevID},SETPOINT,TypeName=Setpoint,DESCR=EVMinVoltage").Create()
+                                                            Devices[UnitFree].Update(nValue=207, sValue="207", Used=1)
                                                             unit=getDeviceUnit(Devices,1)   # find another free Unit to create EV Mode
                                                 elif (portOpt==PORTOPT_DIMMER):
                                                     typeName="Dimmer"
