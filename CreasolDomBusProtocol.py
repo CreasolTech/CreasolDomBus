@@ -77,6 +77,7 @@ SUBCMD_SET7=0x07                #Send parameter 7 (16bit value)
 SUBCMD_SET8=0x08                #Send parameter 8 (16bit value)
 SUBCMD_SET9=0x09                #Send parameter 9 (16bit value)
 SUBCMD_SET10=0x0a               #Send parameter 10 (16bit value)
+SUBCMD_SET11=0x0b               #Send parameter 11 (16bit value)
 SUBCMD_SETMAX=0x10              #Send parameter 16
 
 PORTTYPE_DISABLED=0x0000        #port not used
@@ -337,7 +338,7 @@ def dump(protocol, buffer,frameLen,direction):
         f+="%.4x " % (int(buffer[1])*256+int(buffer[2]))
         f+="%.2d " % int(buffer[5]) #length
         i=FRAME_HEADER2
-        while (i<frameLen-1):
+        while i < frameLen-1:
             #TODO: write SET 01 00 SET 02 01 SET 03 0a SET
             #TODO: write CFG 02 FF
             cmd=int(buffer[i])&CMD_MASK
@@ -372,7 +373,7 @@ def dump(protocol, buffer,frameLen,direction):
             f+='| '
             i+=cmdLen
         f+="%.2x " % int(buffer[i]) #checksum
-        if (cmd==CMD_DCMD): #log DCMD command with priority INFO, so it's possible to monitor traffic between DomBus modules
+        if cmd == CMD_DCMD: #log DCMD command with priority INFO, so it's possible to monitor traffic between DomBus modules
             Log(LOG_INFO,direction+" frame: "+f)
         else:
             Log(LOG_DUMP,direction+" frame: "+f)
@@ -640,6 +641,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     setMaxPower2Time=""
     setWaitTime=""
     setMeterType=""
+    setMinVoltage=""
     setStartPower=""
     setStopTime=""
     setAutoStart=""
@@ -785,6 +787,11 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             if (setMeterType>1):
                 setMeterType=0   # default value
             setOptNames+=f"EVMETERTYPE={setMeterType},"
+        elif optu[:13]=="EVMINVOLTAGE=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setMinVoltage=int(float(opt[13:]))
+            if (setMinVoltage>500):
+                setMinVoltage=207   # default value
+            setOptNames+=f"EVMINVOLTAGE={setMinVoltage},"
         elif optu[:9]=="HWADDR=0X" and len(opt)==13:
             #set hardware address
             hwaddr=int(optu[7:],16)
@@ -1058,6 +1065,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET9, setWaitTime>>8, setWaitTime&0xff], TX_RETRY,0) 
     if (setMeterType!=""): # EV Mode: set energy meter type (0=DDS238 ZN/S, 1=DTS238 ZN/S)
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET10, setMeterType>>8, setMeterType&0xff], TX_RETRY,0) 
+    if (setMinVoltage!=""): # EV Mode: set min voltage to keep during charging (for example 207V in Winter, or 250V in Summer to just keep all solar inverters ON)
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET11, setMinVoltage>>8, setMinVoltage&0xff], TX_RETRY,0) 
     if (setPar1!=""): # Par array 
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, setPar1>>8, setPar1&0xff], TX_RETRY,0) 
     if (setPar2!=""): # Par array 
@@ -1553,7 +1562,10 @@ def decode(Devices):
                         getDeviceID(frameAddr,port)
                         if (cmd==CMD_CONFIG): 
                             if ((port&0xf0)==0xe0): #send text to the log file: port incremented at each transmission
-                                Log(LOG_INFO,f"Msg #{port&15} from {devID}: {rxbuffer[portIdx+1:portIdx+cmdLen].decode()}")
+                                try:
+                                    Log(LOG_INFO,f"Msg #{port&15} from {devID}: {rxbuffer[portIdx+1:portIdx+cmdLen].decode()}")
+                                except:
+                                    Log(LOG_INFO,f"Msg #{port&15} from {devID}: {rxbuffer[portIdx+1:portIdx+cmdLen]}")
                                 if (frameAddr in modules):
                                     modules[frameAddr][LASTSTATUS]=0    #force transmit output status
                                 txQueueAdd(frameAddr,cmd,2,CMD_ACK,port,[arg1],1,1)
@@ -1791,7 +1803,7 @@ def send(Devices, SerialConn):
         timeFromLastRx=sec-module[LASTRX]       #number of seconds since last RXed frame
         timeFromLastStatus=sec-module[LASTSTATUS]     #number of seconds since last TXed output status
         protocol=module[LASTPROTOCOL]           # 1=old protocol, 2=new protocol, 0=unknown: send frame with both protocols
-        if (len(txQueue[frameAddr])>0):
+        if frameAddr in txQueue and len(txQueue[frameAddr])>0:
             retry=module[LASTRETRY]                         #number of retris (0,1,2,3...): used to compute the retry period
             if (retry>TX_RETRY):
                 retry=TX_RETRY
