@@ -12,14 +12,14 @@
         <ul style="list-style-type:square">
             <li>Creasol <b>DomBusEVSE</b> : DIN module that work as <b>EV charging station AC, single or three-phase, with SOLAR mode</b> (only renewable energy) <b>or SOLAR+GRID modes</b> (use also energy from grid) and <b>Managed mode</b> (charge current managed by Domoticz script) </li> 
             <li>Creasol <b>DomBusTH</b> : <b> Temperature + Humidity sensor, 3* LEDs, 4* I/O </b> (digital/analog inputs, digital outputs, buzzer), <b> 1* 0-30V analog input, 2 open-drain outputs</b> (to drive exteranl relays or LEDs, 40V 50mA max).</li>
-            <li>Creasol <b>DomBus12</b> : <b>7*I/O</b> (digital inputs/outpus, analog inputs, buzzer output, dimmer output), <b> 2 open-drain outputs</b> (to drive external relays).</li>
-            <li>Creasol <b>DomBus21</b> : <b>3x 15A latching relays</b>, 1 AC input, <b>4 inputs</b> (for pushbuttons, switches, meters, counters, ...)</li>
-            <li>Creasol <b>DomBus23</b> : <b>2* power-optimized relays, 1* 230Vac input, 2* analog/digital inputs, 2*I/O</b> (digital inputs/outputs, analog inputs, buzzer output, dimmer output), <b>2* 12/24V inputs with optocoupler, 1 power mosfet 30V 13A with dimmer</b> function.</li>
+            <li>Creasol <b>DomBus12</b> : <b> 7*I/O</b> (digital inputs/outpus, analog inputs, buzzer output, dimmer output), <b> 2 open-drain outputs</b> (to drive external relays).</li>
+            <li>Creasol <b>DomBus21</b> : <b> 3x 15A latching relays</b>, 1 AC input, <b>4 inputs</b> (for pushbuttons, switches, meters, counters, ...)</li>
+            <li>Creasol <b>DomBus23</b> : <b> 2x power-optimized relays, 1x 230Vac input, 2x analog/digital inputs, 2xI/O</b> (digital inputs/outputs, analog inputs, buzzer output, dimmer output), <b>2* 12/24V inputs with optocoupler, 1 power mosfet 30V 13A with dimmer</b> function.</li>
             <li>Creasol <b>DomBus31</b> : DIN module with <b> 6* SPST 250V 5A relays + 2* SPDT (NO+NC terminal blocks) 250V 10A relays</b>. All relays are power-optimized, and can be used to drive blind/roller shutter motors</li>
             <li>Creasol <b>DomBus32</b> : DIN module with <b> 3* SPST 250V 5A relays + 3* AC inputs + 5 I/Os</b>, designed for step-relay lights system.</li> 
             <li>Creasol <b>DomBus33</b> : DIN module with <b> 3* SPST 250V 5A relays + 3* AC inputs + 5 I/Os</b> with special firmware to <b>work with existing light systems</b> using pushbuttons + step-by-step relays</li>
             <li>Creasol <b>DomBus34</b> : DIN module with <b> 2* SPST 250V 5A relays + 1* AC inputs + 2 I/Os</b>. Manage <b>up to 4 power/energy meters</b> DDS238-2 ZN/S (Modbus)</li>
-            <li>Creasol <b>DomBus36</b> : DIN module with <b> 12x 5A SPST relay outputs.</li>
+            <li>Creasol <b>DomBus36</b> : DIN module with <b> 12x 5A SPST relay outputs.</b></li>
             <li>Creasol <b>DomBus37</b> : DIN module with <b> 12 inputs, 3 AC inputs, 3 relay outputs </b>.</li>
             <li>Creasol <b>DomBus38</b> : DIN module with <b> 12 inputs, 1 AC input, 4 SPDT relays + 2 SPST relays</b>.</li>
             <li>Creasol <b>DomBusTracker</b> : <b> Dual axis solar tracker </b>, working in <b> stand-alone </b> mode and controllable by Domoticz.</li>

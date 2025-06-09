@@ -1557,7 +1557,7 @@ def decode(Devices):
                                                         sValue="0;0"
 
                                             Log(LOG_INFO,"Add device "+deviceID+" deviceAddr="+deviceAddr+": "+portName+" portType="+hex(portType)+" portOpt="+str(portOpt)+" Description="+descr)
-                                            Log(LOG_INFO,"Name=("+devID+") "+portName+", TypeName="+typeName+", Switchtype="+Switchtype+", DeviceID="+deviceID+", Unit="+str(UnitFree)+" ,Options="+str(Options))
+                                            Log(LOG_INFO,f"Name=({devID}) {portName}, TypeName={typeName}, Switchtype={Switchtype}, DeviceID={deviceID}, Unit={UnitFree}, Options={Options}")
                                             if (Switchtype!=''): 
                                                 Domoticz.Device(Name="("+devID+") "+portName, TypeName=typeName, Switchtype=Switchtype, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
                                             else:
