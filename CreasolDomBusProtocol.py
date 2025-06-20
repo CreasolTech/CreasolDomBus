@@ -78,6 +78,7 @@ SUBCMD_SET8=0x08                #Send parameter 8 (16bit value)
 SUBCMD_SET9=0x09                #Send parameter 9 (16bit value)
 SUBCMD_SET10=0x0a               #Send parameter 10 (16bit value)
 SUBCMD_SET11=0x0b               #Send parameter 11 (16bit value)
+SUBCMD_SET12=0x0c               #Send parameter 12 (16bit value)
 SUBCMD_SETMAX=0x10              #Send parameter 16
 
 PORTTYPE_DISABLED=0x0000        #port not used
@@ -642,6 +643,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     setWaitTime=""
     setMeterType=""
     setMinVoltage=""
+    setMinCurrent=""
     setStartPower=""
     setStopTime=""
     setAutoStart=""
@@ -792,6 +794,11 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             if (setMinVoltage>500):
                 setMinVoltage=207   # default value
             setOptNames+=f"EVMINVOLTAGE={setMinVoltage},"
+        elif optu[:13]=="EVMINCURRENT=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setMinCurrent=int(float(opt[13:]))
+            if (setMinCurrent<3 or setMinCurrent>16):
+                setMinCurrent=6   # default value
+            setOptNames+=f"EVMINCURRENT={setMinCurrent},"
         elif optu[:9]=="HWADDR=0X" and len(opt)==13:
             #set hardware address
             hwaddr=int(optu[7:],16)
@@ -1067,6 +1074,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET10, setMeterType>>8, setMeterType&0xff], TX_RETRY,0) 
     if (setMinVoltage!=""): # EV Mode: set min voltage to keep during charging (for example 207V in Winter, or 250V in Summer to just keep all solar inverters ON)
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET11, setMinVoltage>>8, setMinVoltage&0xff], TX_RETRY,0) 
+    if (setMinCurrent!=""): # EV Mode: set min voltage to keep during charging (for example 207V in Winter, or 250V in Summer to just keep all solar inverters ON)
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET12, setMinCurrent>>8, setMinCurrent&0xff], TX_RETRY,0) 
     if (setPar1!=""): # Par array 
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, setPar1>>8, setPar1&0xff], TX_RETRY,0) 
     if (setPar2!=""): # Par array 
