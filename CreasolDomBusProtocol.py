@@ -786,7 +786,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             setOptNames+=f"EVWAITTIME={setWaitTime},"
         elif optu[:12]=="EVMETERTYPE=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
             setMeterType=int(float(opt[12:]))
-            if (setMeterType>1):
+            if setMeterType>=4:
                 setMeterType=0   # default value
             setOptNames+=f"EVMETERTYPE={setMeterType},"
         elif optu[:13]=="EVMINVOLTAGE=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
@@ -1043,10 +1043,12 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     Options.update(setOptions)
 
 #        if (setOptionsChanged>0):
-    Log(LOG_INFO,"TypeName='"+str(typeName)+"', Switchtype="+str(setSwitchtype)+", nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(Options))
-    if setSwitchtype==None:
-        setSwitchtype=0
-    Devices[Unit].Update(TypeName=typeName, Switchtype=setSwitchtype, nValue=nValue, sValue=sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
+    Log(LOG_INFO,"TypeName="+str(typeName)+", Switchtype="+str(setSwitchtype)+", nValue="+str(nValue)+", sValue='"+str(sValue)+"', Description='"+str(descr)+"', Options="+str(Options))
+    if setSwitchtype:
+        Devices[Unit].Update(TypeName=typeName, Switchtype=setSwitchtype, nValue=nValue, sValue=sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
+    else:
+        Devices[Unit].Update(TypeName=typeName, nValue=nValue, sValue=sValue, Description=str(descr), Options=Options)  # Update description (removing HWADDR=0x1234)
+
     Log(LOG_DEBUG, "Device updated!")
     if (setCal!=32768): #new calibration value
         if (setCal<0): 
@@ -1444,7 +1446,7 @@ def decode(Devices):
                                                 # do not enable CUSTOM device with PORTOPT not specified (ignore it!)
                                                 typeName=PORT_TYPENAME[portType]
                                                 Options={}
-                                                Switchtype=''
+                                                Switchtype=None
                                                 if (portType==PORTTYPE_CUSTOM):
                                                     if (portOpt==PORTOPT_SELECTOR):
                                                         typeName="Selector Switch"
@@ -1567,7 +1569,7 @@ def decode(Devices):
 
                                             Log(LOG_INFO,"Add device "+deviceID+" deviceAddr="+deviceAddr+": "+portName+" portType="+hex(portType)+" portOpt="+str(portOpt)+" Description="+descr)
                                             Log(LOG_INFO,f"Name=({devID}) {portName}, TypeName={typeName}, Switchtype={Switchtype}, DeviceID={deviceID}, Unit={UnitFree}, Options={Options}")
-                                            if (Switchtype!=''): 
+                                            if Switchtype: 
                                                 Domoticz.Device(Name="("+devID+") "+portName, TypeName=typeName, Switchtype=Switchtype, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
                                             else:
                                                 Domoticz.Device(Name="("+devID+") "+portName, TypeName=typeName, DeviceID=deviceID, Unit=UnitFree, Options=Options, Description=descr).Create()
