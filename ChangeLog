@@ -7,6 +7,13 @@ TODO:
 Cannot change HWADDR with old modules using protocol=1 (with 0.0.5 it works) 
 
 Creasol DomBus ChangeLog
+1.3.11 2025-07-11
+	EVMETERTYPE can be set to 2 (no grid power meter installed, single phase)
+	and 3 (no grid power meter installed, three phase): in this case the EVSE
+	works in stupid mode, setting the charging current to a fixed value
+	depending by EVMODE (25, 50, 75, 100% of EVMAXPOWER) without the
+	possibility to check the real power consumption and without load
+	management.
 
 1.3.10 2025-06-05
 	DomBusEVSE: new setpoint device EVMINVOLTAGE used to set the minimum

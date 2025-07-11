@@ -3,9 +3,9 @@
 # Author: creasol https://creasol.it
 #
 """
-<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.3.10" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://www.creasol.it/domotics">
+<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.3.11" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://www.creasol.it/domotics">
     <description>
-        <h2>Creasol DomBus plugin - Rev.1.3.10</h2><br/>
+        <h2>Creasol DomBus plugin - Rev.1.3.11</h2><br/>
         RS485 bus protocol used to connect Domoticz controller (Raspberry PI, Linux, Windows, ...) to one or more Creasol DomBus* modules.<br/>
         Useful to expand Domoticz I/O/S: digital inputs, ultrasonic distance senrsors, 230Vac inputs, 12/24V inputs, digital output, power-optimized relays, buzzer, blinds/roller shutters, LEDs, temperature and relative humidity sensors, Led stripes, ...<br/>
         <h3>Supported modules:</h3>
