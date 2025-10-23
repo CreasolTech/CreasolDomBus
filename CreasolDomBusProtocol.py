@@ -79,6 +79,7 @@ SUBCMD_SET9=0x09                #Send parameter 9 (16bit value)
 SUBCMD_SET10=0x0a               #Send parameter 10 (16bit value)
 SUBCMD_SET11=0x0b               #Send parameter 11 (16bit value)
 SUBCMD_SET12=0x0c               #Send parameter 12 (16bit value)
+SUBCMD_SET13=0x0d               #Send parameter 13 (16bit value)
 SUBCMD_SETMAX=0x10              #Send parameter 16
 
 PORTTYPE_DISABLED=0x0000        #port not used
@@ -614,6 +615,12 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
             power=int(float(Command.split(';')[0]))
             if (power<0): power=65536+power;
             txQueueAdd(frameAddr,CMD_SET,4,0,port,[(power>>8), (power&0x0ff), 0], 1, 1)
+        elif d.SubType==31: #Hz
+            power=int(float(Command))   # Frequency
+            txQueueAdd(frameAddr,CMD_SET,4,0,port,[(power>>8), (power&0x0ff), 0], 1, 1)
+        elif d.SubType==8:  #Voltage
+            power=int(float(Command))   # Voltage, integer
+            txQueueAdd(frameAddr,CMD_SET,4,0,port,[(power>>8), (power&0x0ff), 0], 1, 1)
     else:
         Log(LOG_DEBUG,"parseCommand: ignore command because Type="+str(d.Type)+" SubType="+str(d.SubType)+" Name="+d.Name+" has not attribute SwitchType")
     return
@@ -647,6 +654,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     setStartPower=""
     setStopTime=""
     setAutoStart=""
+    setSolarPower=""
     setPar1=""
     setPar2=""
     setPar3=""
@@ -799,6 +807,12 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             if (setMinCurrent<3 or setMinCurrent>16):
                 setMinCurrent=6   # default value
             setOptNames+=f"EVMINCURRENT={setMinCurrent},"
+        elif optu[:19]=="EVSOLARGRIDPOWER=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setsolarGridPower=int(float(opt[19:]))
+            if setsolarGridPower<30000 or setSolarTargetPower>30000: setSolarPower=0  # Invalid value: set to defaul
+            if setsolarGridPower<0:                                        
+                setsolarGridPower += 65536
+            setOptNames+=f"EVSOLARGRIDPOWER={opt[19:]},"
         elif optu[:9]=="HWADDR=0X" and len(opt)==13:
             #set hardware address
             hwaddr=int(optu[7:],16)
@@ -1078,6 +1092,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET11, setMinVoltage>>8, setMinVoltage&0xff], TX_RETRY,0) 
     if (setMinCurrent!=""): # EV Mode: set min voltage to keep during charging (for example 207V in Winter, or 250V in Summer to just keep all solar inverters ON)
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET12, setMinCurrent>>8, setMinCurrent&0xff], TX_RETRY,0) 
+    if (setsolarGridPower!=""): # EV Mode: set target power in SOLAR mode
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET13, setsolarGridPower>>8, setSolarTargetPower&0xff], TX_RETRY,0) 
     if (setPar1!=""): # Par array 
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, setPar1>>8, setPar1&0xff], TX_RETRY,0) 
     if (setPar2!=""): # Par array 
@@ -1317,7 +1333,7 @@ def decode(Devices):
                     frameError=2    #2=checksum error
             else:
                 # not enough data in rxBuffer
-                if frameLen<=FRAME_LEN_MAX or (rxbuffer[FRAME_HEADER2]==0x09 and rxbuffer[FRAME_HEADER2+1]==0xff):    # waiting for DomBus txConfig()
+                if frameLen<=FRAME_LEN_MAX or len(rxbuffer)<=(FRAME_HEADER2+1+1) or ((rxbuffer[FRAME_HEADER2]&(CMD_MASK|CMD_ACK))==(CMD_CONFIG|CMD_ACK) and rxbuffer[FRAME_HEADER2+1]==0xff):    # waiting for DomBus txConfig()
                     frameError=3        #3=insufficient data
                 # else frameError=1 => invalid
                     
@@ -1544,6 +1560,11 @@ def decode(Devices):
                                                             Domoticz.Device(Name="("+evminvoltageDevID+") EV MinVoltage", TypeName="Setpoint", Type=242, Subtype=1, Options={'ValueStep':'1', 'ValueMin':'0', 'ValueMax':'500', 'ValueUnit':'V'}, DeviceID=evminvoltageDeviceID, Unit=UnitFree, Description=f"ID={evminvoltageDevID},SETPOINT,TypeName=Setpoint,DESCR=EVMinVoltage").Create()
                                                             Devices[UnitFree].Update(nValue=207, sValue="207", Used=1)
                                                             unit=getDeviceUnit(Devices,1)   # find another free Unit to create EV Mode
+
+                                                    elif "TrackerState" in portName:
+                                                        Options={"LevelNames": "Cloudy|Auto|Moving|Manual|Manual+Moving|Evening|Night|Night+Moving|Morning|WindAlert|Wind|Wind+Moving", "LevelActions": "", "LevelOffHidden": "True", "SelectorStyle": "1"}
+                                                        typeName="Selector Switch"
+                                                        sValue="0"
                                                 elif (portOpt==PORTOPT_DIMMER):
                                                     typeName="Dimmer"
                                                     Log(LOG_INFO,f"DIMMER, portName={portName}")
@@ -1798,8 +1819,8 @@ def decode(Devices):
                 dump(1, rxbuffer, frameLen, "RXbad, low frameLen")
             elif (frameError==3): 
                 #not enough data in rxbuffer
-                Log(LOG_DEBUG,"Not enough data in rxbuffer[]")
-                dump(1, rxbuffer, frameLen, "RXbad, not enough data")
+                # Log(LOG_DEBUG,"Not enough data in rxbuffer[]")
+                # dump(1, rxbuffer, frameLen, "RXbad, not enough data")
                 return
             elif (frameError==2):
                 # checksum error
