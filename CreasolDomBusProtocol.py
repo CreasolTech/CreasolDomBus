@@ -523,7 +523,7 @@ def txQueueRemove(frameAddr,cmd,port,arg1):
         for f in txQueue[frameAddr][:]:
             #Log(LOG_DEBUG,"f="+str(f))
             #f=[cmd,cmdlen,cmdAck,port,args[],retries]
-            if (((cmd&port)==255) or (f[TXQ_CMD]==cmd and f[TXQ_PORT]==port and (len(f[TXQ_ARGS])==0 or f[TXQ_ARGS][0]==arg1))):
+            if (((cmd&port)==255) or (f[TXQ_CMD]==cmd and f[TXQ_PORT]==port and (len(f[TXQ_ARGS])==0 or f[TXQ_ARGS][0]==arg1) and f[TXQ_RETRIES]!=TX_RETRY)):
                 txQueue[frameAddr].remove(f)
     return
     
@@ -654,7 +654,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
     setStartPower=""
     setStopTime=""
     setAutoStart=""
-    setSolarPower=""
+    setSolarGridPower=""
     setPar1=""
     setPar2=""
     setPar3=""
@@ -807,12 +807,12 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             if (setMinCurrent<3 or setMinCurrent>16):
                 setMinCurrent=6   # default value
             setOptNames+=f"EVMINCURRENT={setMinCurrent},"
-        elif optu[:19]=="EVSOLARGRIDPOWER=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
-            setsolarGridPower=int(float(opt[19:]))
-            if setsolarGridPower<30000 or setSolarTargetPower>30000: setSolarPower=0  # Invalid value: set to defaul
-            if setsolarGridPower<0:                                        
-                setsolarGridPower += 65536
-            setOptNames+=f"EVSOLARGRIDPOWER={opt[19:]},"
+        elif optu[:17]=="EVSOLARGRIDPOWER=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
+            setSolarGridPower=int(float(opt[17:]))
+            if setSolarGridPower<-30000 or setSolarGridPower>30000: setSolarGridPower=0  # Invalid value: set to defaul
+            if setSolarGridPower<0:                                        
+                setSolarGridPower += 65536
+            setOptNames+=f"EVSOLARGRIDPOWER={opt[17:]},"
         elif optu[:9]=="HWADDR=0X" and len(opt)==13:
             #set hardware address
             hwaddr=int(optu[7:],16)
@@ -1092,8 +1092,8 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET11, setMinVoltage>>8, setMinVoltage&0xff], TX_RETRY,0) 
     if (setMinCurrent!=""): # EV Mode: set min voltage to keep during charging (for example 207V in Winter, or 250V in Summer to just keep all solar inverters ON)
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET12, setMinCurrent>>8, setMinCurrent&0xff], TX_RETRY,0) 
-    if (setsolarGridPower!=""): # EV Mode: set target power in SOLAR mode
-        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET13, setsolarGridPower>>8, setSolarTargetPower&0xff], TX_RETRY,0) 
+    if (setSolarGridPower!=""): # EV Mode: set target power in SOLAR mode
+        txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET13, setSolarGridPower>>8, setSolarGridPower&0xff], TX_RETRY,0) 
     if (setPar1!=""): # Par array 
         txQueueAdd(frameAddr, CMD_CONFIG, 4, 0, port, [SUBCMD_SET, setPar1>>8, setPar1&0xff], TX_RETRY,0) 
     if (setPar2!=""): # Par array 

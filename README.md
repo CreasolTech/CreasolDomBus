@@ -63,6 +63,8 @@ Now you're ready to connect one *DomBus* device to the RS485 bus, and check the 
 
 Below a list of modules, produced in Europe by Creasol, designed for Domoticz to be reliable and optimized for very very low power consumption.
 
+[<img src="https://www.creasol.it/youtube.png" alt="Video"/> Download the PDF catalog!](https://www.creasol.it/catalog)
+
 Our industrial and home automation modules are designed to be
 * very low power (**around 10mW with relays OFF**)
 * reliable (**no disconnections**)
