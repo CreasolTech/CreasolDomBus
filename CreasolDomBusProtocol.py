@@ -1720,7 +1720,7 @@ def decode(Devices):
                                         if abs(avgTemp-temp)>=1.5:
                                             Log(LOG_WARN,f"Temperature warning: Name={d.Name} temp={temp} avgTemp={avgTemp} diff={round(temp-avgTemp,1)}")
                                         Log(LOG_DEBUG,f"Name={d.Name} temp={temp} avgTemp={avgTemp} diff={round(temp-avgTemp,1)} value={value}")
-                                        temp=(avgTemp*5+temp)/6
+                                        temp=(avgTemp*7+temp)/8
                                         #Log(LOG_DEBUG,"tempDiff<1 => temp=(avgTemp*5+temp)/6="+str(temp))
                                         d.Options['avgTemp']=str(round(temp,2))   #save current avg value, with 2 digit precision
 

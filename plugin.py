@@ -3,9 +3,9 @@
 # Author: creasol https://creasol.it
 #
 """
-<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.3.12" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://www.creasol.it/domotics">
+<plugin key="CreasolDomBus" name="Creasol DomBus RS485 modules (inputs, outputs, sensors)" author="Creasol" version="1.3.13" wikilink="http://www.domoticz.com/wiki/Creasol_Dombus" externallink="https://www.creasol.it/domotics">
     <description>
-        <h2>Creasol DomBus plugin - Rev.1.3.12</h2><br/>
+        <h2>Creasol DomBus plugin - Rev.1.3.13</h2><br/>
         RS485 bus protocol used to connect Domoticz controller (Raspberry PI, Linux, Windows, ...) to one or more Creasol DomBus* modules.<br/>
         Useful to expand Domoticz I/O/S: digital inputs, ultrasonic distance senrsors, 230Vac inputs, 12/24V inputs, digital output, power-optimized relays, buzzer, blinds/roller shutters, LEDs, temperature and relative humidity sensors, Led stripes, ...<br/>
         <h3>Supported modules:</h3>
@@ -130,7 +130,7 @@ class BasePlugin:
         #Domoticz.Debug("SwitchType=="+str(Devices[Unit].SwitchType))
         if (Devices[Unit].SwitchType==7):   #Dimmer
             minLevel=1 if (re.search('OUT_ANALOG',Devices[Unit].Description)) else 5
-            nv=1 if Level>=minLevel else 0
+            nv=2 if Level>=minLevel else 0  # 2 => show % instead of 'On'
             if (Command=='Off'):
                 Devices[Unit].Update(nValue=0, sValue=str(Level))
             else:
