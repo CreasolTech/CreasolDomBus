@@ -36,6 +36,7 @@ import re
 import json
 import math
 import requests     # needed to call a scene/group by a DCMD command from a module
+import os           # requested to check if the dir for local configuration exists
 
 #if 1, when a module does not transmit for more than 15 minutes (MODULE_ALIVE_TIME), it will appear in red (TimedOut)
 PROTOCOL1_WITH_PERIODIC_TX=1    # set to 1 if all existing modules transmit their status periodically (oldest modules with protocol 1 did not)
@@ -286,6 +287,8 @@ def portsDisabledWriteNow():
 def portsDisabledInit():
     global portsDisabled, portsDisabledWrite
     portsDisabledWrite=0    #time*heartbeat before writing the portsDisabled dict on json file
+    if os.path.isdir("userdata/plugins/CreasolDomBus"):
+        PORTSDISABLED="userdata/plugins/CreasolDomBus/portsDisabled.json"  # in case of domoticz working in a Docker
     try:
         fd=open(PORTSDISABLED)
     except:
@@ -541,9 +544,9 @@ def txOutputsStatus(Devices,frameAddr):
                 port=int("0x"+d.DeviceID[7:11],0)
                 if (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
                     if (re.search("OUT_ANALOG|CUSTOM",d.Description)):
-                        level=int(d.sValue) if d.nValue==1 else 0 #1% step
+                        level=int(d.sValue) if d.nValue!=0 else 0 #1% step
                     else:
-                        level=int(int(d.sValue)/5) if d.nValue==1 else 0    #soft dimmer => 5% step
+                        level=int(int(d.sValue)/5) if d.nValue!=0 else 0    #soft dimmer => 5% step
                     txQueueAdd(frameAddr,CMD_SET,2,0,port,[level],TX_RETRY,1) #Level: from 0 to 20 = 100%
                 elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
                     txQueueAdd(frameAddr,CMD_SET,2,0,port,[d.nValue],TX_RETRY,1) #Level: 0, 10, 20, ....
@@ -587,8 +590,8 @@ def parseCommand(Devices, unit, Command, Level, Hue, frameAddr, port):
                     #Log(LOG_INFO,f"Dimmer level set to {Level} by parseCommand()")
                 else:
                     txQueueAdd(frameAddr,CMD_SET,2,0,port,[int(Level/5)],TX_RETRY,1) #Level: from 0 to 20 = 100% (5% step)
-                #nValue=0 if Level==0 else 1
-                #d.Update(nValue=1, sValue="20")
+                #nValue=0 if Level==0 else 2
+                #d.Update(nValue=2, sValue="20")
         elif (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
             txQueueAdd(frameAddr,CMD_SET,2,0,port,[Level],TX_RETRY,1) #Level: 0, 10, 20, ....
         elif (hasattr(d,'SwitchType') and (d.SwitchType==15 or d.SwitchType==14)): #venetian blinds
@@ -1664,7 +1667,7 @@ def decode(Devices):
                                         if (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
                                             d.Update(nValue=int(arg1), sValue=str(arg1))
                                         elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
-                                            nValue=0 if arg1==0 else 1  # Already tested nValue=2 when level between 1 and 99%: same behaviour of nValue=1 
+                                            nValue=0 if arg1==0 else 2  # Already tested nValue=2 when level between 1 and 99%: same behaviour of nValue=1 
                                             d.Update(nValue=nValue, sValue=str(arg1))
                                         elif (hasattr(d,'SwitchType') and d.SwitchType==11): #door contact: note that if nValue==3 => door is closed even if sValue==On
                                             if value==2:
@@ -1746,7 +1749,7 @@ def decode(Devices):
                                             a=float(v) if (v!="false") else 1
                                             v=getOpt(d,"B=")
                                             b=float(v) if (v!="false") else 0
-                                            Value=a*value+b
+                                            Value=round(a*value+b, 2)
                                         if (Value==0 or d.sValue!=str(Value)):
                                             d.Update(nValue=int(Value), sValue=str(Value))
                                         #Log(LOG_DEBUG,"Value="+str(a)+"*"+str(value)+"+"+str(b)+"="+str(Value))
