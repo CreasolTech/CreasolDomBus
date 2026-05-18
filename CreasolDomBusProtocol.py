@@ -787,7 +787,7 @@ def parseTypeOpt(Devices, Unit, opts, frameAddr, port):
             setOptNames+=f"EVSTOPTIME={setStopTime},"
         elif optu[:12]=="EVAUTOSTART=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
             setAutoStart=int(float(opt[12:]))
-            if (setAutoStart>1):
+            if (setAutoStart>2):
                 setAutoStart=1   # default value
             setOptNames+=f"EVAUTOSTART={setAutoStart},"
         elif optu[:11]=="EVWAITTIME=" and ("EV Mode" in Devices[Unit].Name or "EV State" in Devices[Unit].Name):
