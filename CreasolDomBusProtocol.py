@@ -1665,7 +1665,8 @@ def decode(Devices):
                                     Log(LOG_DEBUG,"devID="+devID+" d.Type="+str(d.Type)+" d.SwitchType="+str(d.SwitchType)+" nValue="+str(arg1)+" sValue="+stringval)
                                     if (d.Type==PORTTYPE[PORTTYPE_OUT_DIGITAL]):
                                         if (hasattr(d,'SwitchType') and d.SwitchType==18): #selector
-                                            d.Update(nValue=int(arg1), sValue=str(arg1))
+                                            if d.nValue != int(arg1) or d.sValue != str(arg1):
+                                                d.Update(nValue=int(arg1), sValue=str(arg1))
                                         elif (hasattr(d,'SwitchType') and d.SwitchType==7): #dimmer
                                             nValue=0 if arg1==0 else 2  # Already tested nValue=2 when level between 1 and 99%: same behaviour of nValue=1 
                                             d.Update(nValue=nValue, sValue=str(arg1))
